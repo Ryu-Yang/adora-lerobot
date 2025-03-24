@@ -650,13 +650,13 @@ class AdoraRobotConfig(RobotConfig):
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "top": OpenCVCameraConfig(
-                camera_index=10,
+                camera_index=6,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "wrist": OpenCVCameraConfig(
-                camera_index=18,
+                camera_index=14,
                 fps=30,
                 width=640,
                 height=480,
@@ -671,3 +671,66 @@ class AdoraRobotConfig(RobotConfig):
 
     mock: bool = False
 
+@RobotConfig.register_subclass("adora_dual")
+@dataclass
+class AdoraDualRobotConfig(RobotConfig):
+
+    ip = "192.168.1.20"
+    calibration_dir: str = ".cache/calibration/adora"
+    start_pose = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
+    joint_p_limit = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
+    joint_n_limit = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
+    
+    # `max_relative_target` limits the magnitude of the relative positional target vector for safety purposes.
+    # Set this to a positive scalar to have the same value for all motors, or a list that is the same length as
+    # the number of motors in your follower arms.
+    max_relative_target: int | None = None
+
+    leader_arms: dict[str, MotorsBusConfig] = field(
+        default_factory=lambda: {
+            "main": DynamixelMotorsBusConfig(
+                port="/dev/ttyUSB0",
+                motors={
+                    # name: (index, model)
+                    "shoulder_pan": [1, "xl330-m288"],
+                    "shoulder_lift": [2, "xl330-m288"],
+                    "elbow_flex": [3, "xl330-m288"],
+                    "wrist_flex": [4, "xl330-m288"],
+                    "wrist_roll": [5, "xl330-m288"],
+                    "wrist_1": [6, "xl330-m288"],
+                    "weist_2": [7, "xl330-m288"],
+                    "gripper": [8, "xl330-m288"],
+                },
+            ),
+        }
+    )
+
+    cameras: dict[str, CameraConfig] = field(
+        default_factory=lambda: {
+            "top": OpenCVCameraConfig(
+                camera_index=10,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+            "left_wrist": OpenCVCameraConfig(
+                camera_index=18,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+            "right_wrist": OpenCVCameraConfig(
+                camera_index=18,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+        }
+    )
+
+    # ~ Koch specific settings ~
+    # Sets the leader arm in torque mode with the gripper motor set to this angle. This makes it possible
+    # to squeeze the gripper and have it spring back to an open position on its own.
+    gripper_open_degree: float = 35.156
+
+    mock: bool = False

@@ -1,4 +1,22 @@
+# yaocao
+
+```
+python lerobot/scripts/control_robot.py \
+  --robot.type=adora \
+  --control.type=teleoperate
+```
+
 # 采集
+
+
+make sure you've logged in using a write-access token
+
+
+```
+huggingface-cli login --token ${HUGGINGFACE_TOKEN} --add-to-git-credential
+```
+
+confirm the --robot.type before start
 
 ```
 python lerobot/scripts/control_robot.py \
@@ -9,8 +27,8 @@ python lerobot/scripts/control_robot.py \
   --control.repo_id=Ryu-Yang/adora_grasp \
   --control.tags='["tutorial"]' \
   --control.warmup_time_s=5 \
-  --control.episode_time_s=45 \
-  --control.reset_time_s=10 \
+  --control.episode_time_s=60 \
+  --control.reset_time_s=30 \
   --control.num_episodes=3 \
   --control.push_to_hub=true
 ```

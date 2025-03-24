@@ -4,6 +4,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 import os
 import ctypes
+import platform
+import sys
 
 import numpy as np
 import torch
@@ -44,15 +46,26 @@ GRIPPER_OPEN = np.array([-400])
 
 FLAG_FOLLOW=0 #1为高跟随,0为低跟随
 
-WINDOW_SIZE = 5
+WINDOW_SIZE = 2
 
 # 常量预计算
 SCALE_FACTOR = 90 / 1024  # 电机值到关节角度的比例系数
 GRIPPER_SCALE = (90 * 100) / (1024 * 62)  # 夹爪转换比例系数
 GRIPPER_OFFSET = (98 * 100) / 62          # 夹爪转换偏移量
 
-DLL_PATH = os.getenv("DLL_PATH", "/home/ryu-yang/Repos/lerobot/lerobot/common/robot_devices/robots/libRM_Base.so.1.0.0")
+DLL_PATH = os.getenv("DLL_PATH", "lerobot/common/robot_devices/robots/libs")
 
+# End loader
+if platform.machine() == "x86_64":
+    DLL_PATH = os.path.join(DLL_PATH, 'linux_x86', 'libRM_Base.so.1.0.0')
+elif sys.platform == "win32":
+    if sys.maxsize > 2**32:
+        DLL_PATH = os.path.join(DLL_PATH, 'win_64', 'RM_Base.dll')
+    else:
+        DLL_PATH = os.path.join(DLL_PATH, 'win_32', 'RM_Base.dll')
+        print(DLL_PATH)
+else:
+    DLL_PATH = os.path.join(DLL_PATH, 'linux_arm', 'libRM_Base.so.1.0.0')
 
 
 def apply_homing_offset(values: np.array, homing_offset: np.array) -> np.array:
