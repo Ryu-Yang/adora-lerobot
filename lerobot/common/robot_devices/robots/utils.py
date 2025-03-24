@@ -25,6 +25,7 @@ from lerobot.common.robot_devices.robots.configs import (
     So100RobotConfig,
     StretchRobotConfig,
     AdoraRobotConfig,
+    AdoraDualRobotConfig,
 )
 
 
@@ -74,18 +75,24 @@ def make_robot_from_config(config: RobotConfig):
         from lerobot.common.robot_devices.robots.manipulator import ManipulatorRobot
         print("In ManipulatorRobotConfig")
         return ManipulatorRobot(config)
+    
     elif isinstance(config, LeKiwiRobotConfig):
         from lerobot.common.robot_devices.robots.mobile_manipulator import MobileManipulator
         print("In LeKiwiRobotConfig")
         return MobileManipulator(config)
+    
     elif isinstance(config, AdoraRobotConfig):
-        print("In AdoraRobotConfig")
         from lerobot.common.robot_devices.robots.adora_manipulator import AdoraManipulator
-
+        print("In AdoraRobotConfig")
         return AdoraManipulator(config)
+    
+    elif isinstance(config, AdoraDualRobotConfig):
+        from lerobot.common.robot_devices.robots.adora_dual_manipulator import AdoraDualManipulator
+        print("In AdoraDualRobotConfig")
+        return AdoraDualManipulator(config)
+    
     else: 
         from lerobot.common.robot_devices.robots.stretch import StretchRobot
-
         return StretchRobot(config)
 
 

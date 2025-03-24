@@ -675,55 +675,67 @@ class AdoraRobotConfig(RobotConfig):
 @dataclass
 class AdoraDualRobotConfig(RobotConfig):
 
-    ip = "192.168.1.20"
-    calibration_dir: str = ".cache/calibration/adora"
-    start_pose = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
-    joint_p_limit = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
-    joint_n_limit = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
-    
-    # `max_relative_target` limits the magnitude of the relative positional target vector for safety purposes.
-    # Set this to a positive scalar to have the same value for all motors, or a list that is the same length as
-    # the number of motors in your follower arms.
-    max_relative_target: int | None = None
+    right_arm_config = {}
+    right_arm_config['usb_port'] = "/dev/ttyUSB0"
+    right_arm_config['ip'] = "192.168.1.19"
+    right_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_right"
+    right_arm_config['start_pose'] = [90.0, 90.0, -90.0, -90.0, 0.0, 0.0, 0.0]
+    right_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
+    right_arm_config['joint_n_limit'] = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
+    right_leader_arm = DynamixelMotorsBusConfig(
+        port=right_arm_config['usb_port'],
+        motors={
+            "joint_1": [1, "xl330-m288"],
+            "joint_2": [2, "xl330-m288"],
+            "joint_3": [3, "xl330-m288"],
+            "joint_4": [4, "xl330-m288"],
+            "joint_5": [5, "xl330-m288"],
+            "joint_6": [6, "xl330-m288"],
+            "joint_7": [7, "xl330-m288"],
+            "gripper": [8, "xl330-m288"],
+        },
+    )
 
-    leader_arms: dict[str, MotorsBusConfig] = field(
-        default_factory=lambda: {
-            "main": DynamixelMotorsBusConfig(
-                port="/dev/ttyUSB0",
-                motors={
-                    # name: (index, model)
-                    "shoulder_pan": [1, "xl330-m288"],
-                    "shoulder_lift": [2, "xl330-m288"],
-                    "elbow_flex": [3, "xl330-m288"],
-                    "wrist_flex": [4, "xl330-m288"],
-                    "wrist_roll": [5, "xl330-m288"],
-                    "wrist_1": [6, "xl330-m288"],
-                    "weist_2": [7, "xl330-m288"],
-                    "gripper": [8, "xl330-m288"],
-                },
-            ),
-        }
+    left_arm_config = {}
+    left_arm_config['usb_port'] = "/dev/ttyUSB1"
+    left_arm_config['ip'] = "192.168.1.20"
+    left_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_left"
+    left_arm_config['start_pose'] = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
+    left_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
+    left_arm_config['joint_n_limit'] = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
+    left_leader_arm = DynamixelMotorsBusConfig(
+        port=left_arm_config['usb_port'],
+        motors={
+            "joint_1": [1, "xl330-m288"],
+            "joint_2": [2, "xl330-m288"],
+            "joint_3": [3, "xl330-m288"],
+            "joint_4": [4, "xl330-m288"],
+            "joint_5": [5, "xl330-m288"],
+            "joint_6": [6, "xl330-m288"],
+            "joint_7": [7, "xl330-m288"],
+            "gripper": [8, "xl330-m288"],
+        },
     )
 
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "top": OpenCVCameraConfig(
-                camera_index=10,
+                camera_index=6,
                 fps=30,
-                width=640,
-                height=480,
+                width=1280,
+                height=960,
             ),
             "left_wrist": OpenCVCameraConfig(
-                camera_index=18,
+                camera_index=14,
                 fps=30,
-                width=640,
-                height=480,
+                width=1280,
+                height=960,
             ),
             "right_wrist": OpenCVCameraConfig(
-                camera_index=18,
+                camera_index=22,
                 fps=30,
-                width=640,
-                height=480,
+                width=1280,
+                height=960,
             ),
         }
     )
