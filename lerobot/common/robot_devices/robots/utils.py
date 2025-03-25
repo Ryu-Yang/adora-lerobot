@@ -66,6 +66,8 @@ def make_robot_config(robot_type: str, **kwargs) -> RobotConfig:
         return LeKiwiRobotConfig(**kwargs)
     elif robot_type == "adora":
         return AdoraRobotConfig(**kwargs)
+    elif robot_type == "adora_dual":
+        return AdoraDualRobotConfig(**kwargs)
     else:
         raise ValueError(f"Robot type '{robot_type}' is not available.")
 
