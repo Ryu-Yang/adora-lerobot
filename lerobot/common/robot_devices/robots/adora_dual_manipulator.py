@@ -248,7 +248,7 @@ class MovingAverageFilter:
         return self.buffer[0]
 
 
-class Gen72Arm:
+class GEN72Arm:
     def __init__(self, ip, start_pose, joint_p_limit, joint_n_limit):
         
         self.start_pose = start_pose
@@ -311,139 +311,64 @@ class Gen72Arm:
         self.pDll.Set_High_Speed_Eth.restype = ctypes.c_int
 
         #打开高速网络配置
-        self.pDll.Set_High_Speed_Eth(self.nSocket,1,0)
+        self.pDll.Set_High_Speed_Eth(self.nSocket, 1, 0)
         #设置末端工具接口电压为24v
-        self.pDll.Set_Tool_Voltage(self.nSocket,3,1)
+        self.pDll.Set_Tool_Voltage(self.nSocket, 3, 1)
         #打开modbus模式
-        self.pDll.Set_Modbus_Mode(self.nSocket,1,115200,2,2,1)
+        self.pDll.Set_Modbus_Mode(self.nSocket, 1, 115200, 2, 2, 1)
         #初始化夹爪为打开状态
         self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
-
+        #配置碰撞检测等级为无检测
         self.pDll.Set_Collision_Stage(self.nSocket, 0, 0)
+    
+    def movej_cmd(self, joint):
+        clipped_joint = max(self.joint_n_limit[:7], min(self.joint_p_limit[:7], joint[:7]))
+        c_joint = (ctypes.c_float * 7)(*clipped_joint)
+        self.pDll.Movej_Cmd(self.nSocket, c_joint, 20, 1, 0)
+    
+    def movej_canfd(self, joint):
+        clipped_joint = max(self.joint_n_limit[:7], min(self.joint_p_limit[:7], joint[:7]))
+        c_joint = (ctypes.c_float * 7)(*clipped_joint)
+        self.pDll.Movej_CANFD(self.nSocket, c_joint, FLAG_FOLLOW, 0)
+
+    def write_single_register(self, gripper):
+        clipped_gripper = max(0, min(100, gripper))
+        c_gripper = (ctypes.c_int)(*clipped_gripper)
+        self.pDll.Write_Single_Register(self.nSocket, 1, 40000, c_gripper, 1, 0)
+
 
 class AdoraDualManipulator:
     # TODO(rcadene): Implement force feedback
-    """Tau Robotics: https://tau-robotics.com
 
-    Example of highest frequency teleoperation without camera:
-    ```python
-    # Defines how to communicate with the motors of the leader and follower arms
-    leader_arms = {
-        "main": DynamixelMotorsBus(
-            port="/dev/tty.usbmodem575E0031751",
-            motors={
-                # name: (index, model)
-                "shoulder_pan": (1, "xl330-m077"),
-                "shoulder_lift": (2, "xl330-m077"),
-                "elbow_flex": (3, "xl330-m077"),
-                "wrist_flex": (4, "xl330-m077"),
-                "wrist_roll": (5, "xl330-m077"),
-                "gripper": (6, "xl330-m077"),
-            },
-        ),
-    }
-    follower_arms = {
-        "main": DynamixelMotorsBus(
-            port="/dev/tty.usbmodem575E0032081",
-            motors={
-                # name: (index, model)
-                "shoulder_pan": (1, "xl430-w250"),
-                "shoulder_lift": (2, "xl430-w250"),
-                "elbow_flex": (3, "xl330-m288"),
-                "wrist_flex": (4, "xl330-m288"),
-                "wrist_roll": (5, "xl330-m288"),
-                "gripper": (6, "xl330-m288"),
-            },
-        ),
-    }
-    robot = KochRobot(leader_arms, follower_arms)
-
-    # Connect motors buses and cameras if any (Required)
-    robot.connect()
-
-    while True:
-        robot.teleop_step()
-    ```
-
-    Example of highest frequency data collection without camera:
-    ```python
-    # Assumes leader and follower arms have been instantiated already (see first example)
-    robot = KochRobot(leader_arms, follower_arms)
-    robot.connect()
-    while True:
-        observation, action = robot.teleop_step(record_data=True)
-    ```
-
-    Example of highest frequency data collection with cameras:
-    ```python
-    # Defines how to communicate with 2 cameras connected to the computer.
-    # Here, the webcam of the mackbookpro and the iphone (connected in USB to the macbookpro)
-    # can be reached respectively using the camera indices 0 and 1. These indices can be
-    # arbitrary. See the documentation of `OpenCVCamera` to find your own camera indices.
-    cameras = {
-        "macbookpro": OpenCVCamera(camera_index=0, fps=30, width=640, height=480),
-        "iphone": OpenCVCamera(camera_index=1, fps=30, width=640, height=480),
-    }
-
-    # Assumes leader and follower arms have been instantiated already (see first example)
-    robot = KochRobot(leader_arms, follower_arms, cameras)
-    robot.connect()
-    while True:
-        observation, action = robot.teleop_step(record_data=True)
-    ```
-
-    Example of controlling the robot with a policy (without running multiple policies in parallel to ensure highest frequency):
-    ```python
-    # Assumes leader and follower arms + cameras have been instantiated already (see previous example)
-    robot = KochRobot(leader_arms, follower_arms, cameras)
-    robot.connect()
-    while True:
-        # Uses the follower arms and cameras to capture an observation
-        observation = robot.capture_observation()
-
-        # Assumes a policy has been instantiated
-        with torch.inference_mode():
-            action = policy.select_action(observation)
-
-        # Orders the robot to move
-        robot.send_action(action)
-    ```
-
-    Example of disconnecting which is not mandatory since we disconnect when the object is deleted:
-    ```python
-    robot.disconnect()
-    ```
-    """
-
-    # def __init__(
-    #     self,
-    #     ip,
-    #     calibration_path,
-    #     start_pose,
-    #     joint_p_limit,
-    #     joint_n_limit,
-    #     config: KochRobotConfig | None = None,
-    #     **kwargs,
-    # ):
     def __init__(self, config: AdoraDualRobotConfig):
         self.config = config
-        self.robot_type = self.config.type
-        self.calibration_path = Path(self.config.right_arm_config['calibration_dir'])
+
+        self.calibration_path = {}
+        self.calibration_path['right'] = Path(self.config.right_arm_config['calibration_dir'])
+        self.calibration_path['left'] = Path(self.config.left_arm_config['calibration_dir'])
+
         self.leader_arms = {}
         self.leader_arms['right'] = DynamixelMotorsBus(self.config.right_leader_arm)
         self.leader_arms['left'] = DynamixelMotorsBus(self.config.left_leader_arm)
-        # self.leader_arms = make_motors_buses_from_configs(self.config.leader_arms)
         self.cameras = make_cameras_from_configs(self.config.cameras)
+
+        self.follower_arms = {}
+        self.follower_arms['right'] = GEN72Arm(
+            ip = self.config.right_arm_config['ip'],
+            start_pose = self.config.right_arm_config['start_pose'],
+            joint_p_limit = self.config.right_arm_config['joint_p_limit'],
+            joint_n_limit = self.config.right_arm_config['joint_n_limit'],
+        )
+        self.follower_arms['left'] = GEN72Arm(
+            ip = self.config.left_arm_config['ip'],
+            start_pose = self.config.left_arm_config['start_pose'],
+            joint_p_limit = self.config.left_arm_config['joint_p_limit'],
+            joint_n_limit = self.config.left_arm_config['joint_n_limit'],
+        )
+        
         self.is_connected = False
         self.logs = {}
-        Gen72Arm
-
-        print(f"Set_Collision_Stage = {self.pDll.Set_Collision_Stage(self.nSocket, 0, 0)}")
-        # stage = ctypes.c_int_p
-
-        # self.pDllGet_Collision_Stag(self.nSocket, stage)
-
-        # print(f"stage = {stage}")
+        
 
     def get_motor_names(self, arm: dict[str, MotorsBus]) -> list:
         return [f"{arm}_{motor}" for arm, bus in arm.items() for motor in bus.motors]
@@ -498,55 +423,39 @@ class AdoraDualManipulator:
             raise ValueError(
                 "KochRobot doesn't have any device to connect. See example of usage in docstring of the class."
             )
-        # Connect the arms
-        #for name in self.follower_arms:
+        
         for name in self.leader_arms:
-            #self.follower_arms[name].connect()
+            # Connect the arms
             print(f"Connecting {name} leader arm.")
             self.leader_arms[name].connect()
 
-        # Reset the arms and load or run calibration
-        #初始化电机的位置，先读取是否存在.cache文件，如果没有就单独创建
-        if self.calibration_path.exists():
-            # Reset all arms before setting calibration
-            # for name in self.follower_arms:
-            #     reset_arm(self.follower_arms[name])
+            # Reset the arms and load or run calibration
+            if self.calibration_path[name].exists():
 
-            for name in self.leader_arms:
                 reset_arm(self.leader_arms[name])
 
-            with open(self.calibration_path, "rb") as f:
-                calibration = pickle.load(f)
+                with open(self.calibration_path[name], "rb") as f:
+                    calibration = pickle.load(f)
 
-            #gen72关节初始化，移动到初始操作位置
-            joint_base = (ctypes.c_float * 7)(*self.start_pose)
-            ret=self.pDll.Movej_Cmd(self.nSocket, joint_base, 20, 1, 0)
-            print('机械臂是否回到开始位置',ret)
+                #gen72关节初始化，移动到 初始位置
+                ret=self.follower_arms[name].movej_cmd(self.follower_arms[name].start_pose)
+                print('机械臂回到 初始位置 ',ret)
+            else:
+                # Run calibration process which begins by reseting all arms
+                calibration = self.run_calibration()
 
-        else:
-            # Run calibration process which begins by reseting all arms
+                self.calibration_path[name].parent.mkdir(parents=True, exist_ok=True)
+                with open(self.calibration_path[name], "wb") as f:
+                    pickle.dump(calibration, f)
 
-            #创建初始化的路径
-            calibration = self.run_calibration()
+                #gen72关节初始化，移动到 零位
+                ret=self.follower_arms[name].movej_cmd([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+                print('机械臂回到 零位 ',ret)
 
-            self.calibration_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.calibration_path, "wb") as f:
-                pickle.dump(calibration, f)
-
-            #gen72关节初始化，移动到零位
-            joint_base = (ctypes.c_float * 7)(*[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            ret=self.pDll.Movej_Cmd(self.nSocket, joint_base, 20, 1, 0)
-            print('机械臂是否回到初始位置',ret)
-
-        # Set calibration
-        # for name in self.follower_arms:
-        #     self.follower_arms[name].set_calibration(calibration[f"follower_{name}"])
-        for name in self.leader_arms:
+            # Set calibration
             self.leader_arms[name].set_calibration(calibration[f"leader_{name}"])
 
-        # Set better PID values to close the gap between recored states and actions
-        # TODO(rcadene): Implement an automatic procedure to set optimial PID values for each motor
-        for name in self.leader_arms:
+            # Set gripper
             self.leader_arms[name].write("Torque_Enable", 1, "gripper")
             self.leader_arms[name].write("Goal_Position", GRIPPER_OPEN, "gripper")
 
@@ -583,7 +492,7 @@ class AdoraDualManipulator:
             # 读取领导臂电机数据
             read_start = time.perf_counter()
             leader_pos = self.leader_arms[name].read("Present_Position")
-            self.leader_pos[name] = leader_pos
+            self.leader_arms[name].leader_pos = leader_pos
             self.logs[f"read_leader_{name}_pos_dt_s"] = time.perf_counter() - read_start
 
             # 电机数据到关节角度的转换，关节角度处理（向量化操作）
@@ -596,7 +505,7 @@ class AdoraDualManipulator:
                     value = -value
 
                 # 限幅
-                clamped_value = max(self.joint_n_limit[i], min(self.joint_p_limit[i], value))
+                clamped_value = max(self.joint_n_limit[i], min(self.joint_p_limit[i], value[i]))
 
                 # 移动平均滤波
                 filter_value = self.filters[i].update(clamped_value)
@@ -604,7 +513,7 @@ class AdoraDualManipulator:
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
                 # 直接使用内存视图操作
-                self.joint_teleop_write[i] = filter_value
+                self.leader_arms[name].joint_teleop_write[i] = filter_value
 
             # 电机角度到夹爪开合度的换算
             giper_value = leader_pos[7] * GRIPPER_SCALE + GRIPPER_OFFSET
@@ -612,10 +521,9 @@ class AdoraDualManipulator:
 
             # 机械臂执行动作（调用透传API，控制gen72移动到目标位置）
             write_start = time.perf_counter()
-            self.pDll.Movej_CANFD(self.nSocket, self.joint_teleop_write, FLAG_FOLLOW, 0)
+            self.follower_arms[name].movej_canfd(self.leader_arms[name].joint_teleop_write)
             if self.frame_counter % 5 == 0:
-                print(f"Write_Single_Register: giper.  clamped_giper = {clamped_giper}")
-                self.pDll.Write_Single_Register(self.nSocket, 1, 40000, clamped_giper, 1, 0)
+                self.follower_arms[name].write_single_register(clamped_giper)
             self.logs[f"write_follower_{name}_goal_pos_dt_s"] = time.perf_counter() - write_start
 
         print("end teleoperate")
