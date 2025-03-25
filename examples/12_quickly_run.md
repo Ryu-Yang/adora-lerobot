@@ -1,4 +1,4 @@
-# yaocao
+# 遥操
 
 ```
 python lerobot/scripts/control_robot.py \
