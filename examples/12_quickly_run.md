@@ -16,7 +16,7 @@ make sure you've logged in using a write-access token
 huggingface-cli login --token ${HUGGINGFACE_TOKEN} --add-to-git-credential
 ```
 
-confirm the --robot.type before start
+confirm the `--robot.type` before start
 
 ```
 python lerobot/scripts/control_robot.py \
