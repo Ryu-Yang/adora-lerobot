@@ -250,7 +250,7 @@ class MovingAverageFilter:
 
 class GEN72Arm:
     def __init__(self, ip, start_pose, joint_p_limit, joint_n_limit):
-        
+        self.ip = ip
         self.start_pose = start_pose
         self.joint_p_limit = joint_p_limit
         self.joint_n_limit = joint_n_limit
@@ -426,6 +426,13 @@ class AdoraDualManipulator:
         
         for name in self.leader_arms:
             # Connect the arms
+            print(f"test printf : {name} leader arm.")
+            print(f"test printf ip : {self.follower_arms[name].ip} ")
+            print(f"test printf calibration_path : {self.calibration_path[name]} ")
+            print(f"test printf port : {self.leader_arms[name].port} ")
+
+        for name in self.leader_arms:
+            # Connect the arms
             print(f"Connecting {name} leader arm.")
             self.leader_arms[name].connect()
 
@@ -442,7 +449,9 @@ class AdoraDualManipulator:
                 print('机械臂回到 初始位置 ',ret)
             else:
                 # Run calibration process which begins by reseting all arms
-                calibration = self.run_calibration()
+                print(f"run_calibration {name} leader arm.")
+                calibration = self.run_calibration(name)
+                print(f"end run_calibration {name} leader arm.")
 
                 self.calibration_path[name].parent.mkdir(parents=True, exist_ok=True)
                 with open(self.calibration_path[name], "wb") as f:
@@ -451,7 +460,8 @@ class AdoraDualManipulator:
                 #gen72关节初始化，移动到 零位
                 ret=self.follower_arms[name].movej_cmd([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
                 print('机械臂回到 零位 ',ret)
-
+            
+            print(f"{name} leader arm :  set calib and gripper")
             # Set calibration
             self.leader_arms[name].set_calibration(calibration[f"leader_{name}"])
 
@@ -459,21 +469,24 @@ class AdoraDualManipulator:
             self.leader_arms[name].write("Torque_Enable", 1, "gripper")
             self.leader_arms[name].write("Goal_Position", GRIPPER_OPEN, "gripper")
 
+            print(f"Connect {name} leader arm Sucsses!")
+
         # Connect the cameras
         for name in self.cameras:
             self.cameras[name].connect()
 
         self.is_connected = True
 
-    def run_calibration(self):
+    def run_calibration(self, name):
         calibration = {}
 
-        for name in self.leader_arms:
-            homing_offset, drive_mode = run_arm_calibration(self.leader_arms[name], name, "leader")
+        homing_offset, drive_mode = run_arm_calibration(self.leader_arms[name], name, "leader")
 
-            calibration[f"leader_{name}"] = {}
-            for idx, motor_name in enumerate(self.leader_arms[name].motor_names):
-                calibration[f"leader_{name}"][motor_name] = (homing_offset[idx], drive_mode[idx])
+        print(f"run_arm_calibration OK")
+
+        calibration[f"leader_{name}"] = {}
+        for idx, motor_name in enumerate(self.leader_arms[name].motor_names):
+            calibration[f"leader_{name}"][motor_name] = (homing_offset[idx], drive_mode[idx])
 
         return calibration
 

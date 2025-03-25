@@ -722,20 +722,20 @@ class AdoraDualRobotConfig(RobotConfig):
             "top": OpenCVCameraConfig(
                 camera_index=6,
                 fps=30,
-                width=1280,
-                height=960,
+                width=640,
+                height=480,
             ),
             "left_wrist": OpenCVCameraConfig(
                 camera_index=14,
                 fps=30,
-                width=1280,
-                height=960,
+                width=640,
+                height=480,
             ),
             "right_wrist": OpenCVCameraConfig(
                 camera_index=22,
                 fps=30,
-                width=1280,
-                height=960,
+                width=640,
+                height=480,
             ),
         }
     )
