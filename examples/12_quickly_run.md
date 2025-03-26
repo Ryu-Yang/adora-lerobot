@@ -2,7 +2,7 @@
 
 ```
 python lerobot/scripts/control_robot.py \
-  --robot.type=adora \
+  --robot.type=adora_dual \
   --control.type=teleoperate
 ```
 
@@ -20,18 +20,21 @@ confirm the `--robot.type` before start
 
 ```
 python lerobot/scripts/control_robot.py \
-  --robot.type=adora \
+  --robot.type=adora_dual \
   --control.type=record \
   --control.single_task="Grasp a orange and put it in the bowl." \
   --control.fps=10 \
-  --control.repo_id=Ryu-Yang/adora_grasp \
+  --control.repo_id=Ryu-Yang/adora_dual_grasp \
   --control.tags='["tutorial"]' \
   --control.warmup_time_s=5 \
   --control.episode_time_s=60 \
-  --control.reset_time_s=30 \
+  --control.reset_time_s=50 \
   --control.num_episodes=3 \
-  --control.push_to_hub=true
+  --control.push_to_hub=true \
+  --control.resume=true
 ```
+
+Checkpoints are done during recording, so if any issue occurs, you can resume recording by re-running the same command again with `--control.resume=true`. You will need to manually delete the dataset directory if you want to start recording from scratch.
 
 # 查看
 
