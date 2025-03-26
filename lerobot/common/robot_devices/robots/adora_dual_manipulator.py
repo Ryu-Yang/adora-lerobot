@@ -267,10 +267,10 @@ class GEN72Arm:
         self.gipflag_send=1
         # self.gipvalue=80
         #远程操控部分-读取领导臂的目标位置
-        self.leader_pos = {}
+        # self.leader_pos = {}
         #远程操控部分-写入gen72 API的关节数据
         float_joint = ctypes.c_float*7
-        self.joint_teleop_write = float_joint()
+        self.joint_teleop_write = [0.0] * 7
         #远程操控部分-读取gen72 API的关节数据
         self.joint_teleop_read = float_joint()
         #数据观察部分-读取gen72 API的关节数据
@@ -283,6 +283,8 @@ class GEN72Arm:
         self.old_grasp = 100
 
         self.clipped_gripper = 100
+
+        self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
 
         #gen72API
         self.pDll.Movej_Cmd.argtypes = (ctypes.c_int, ctypes.c_float * 7, ctypes.c_byte, ctypes.c_float, ctypes.c_bool)
@@ -331,7 +333,7 @@ class GEN72Arm:
 
     def write_single_register(self, gripper):
         clipped_gripper = max(0, min(100, gripper))
-        c_gripper = (ctypes.c_int)(*clipped_gripper)
+        c_gripper = ctypes.c_int(clipped_gripper)
         self.pDll.Write_Single_Register(self.nSocket, 1, 40000, c_gripper, 1, 0)
 
     def get_joint_degree(self):
@@ -347,6 +349,7 @@ class AdoraDualManipulator:
 
     def __init__(self, config: AdoraDualRobotConfig):
         self.config = config
+        self.robot_type = self.config.type
 
         self.calibration_path = {}
         self.calibration_path['right'] = Path(self.config.right_arm_config['calibration_dir'])
@@ -375,7 +378,6 @@ class AdoraDualManipulator:
         self.logs = {}
         self.frame_counter = 0  # 帧计数器
 
-        self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
         
 
     def get_motor_names(self, arm: dict[str, MotorsBus]) -> list:
@@ -510,10 +512,12 @@ class AdoraDualManipulator:
             )
 
         for name in self.leader_arms:
+            # if name == "left":
+            #     continue
             # 读取领导臂电机数据
             read_start = time.perf_counter()
             leader_pos = self.leader_arms[name].read("Present_Position")
-            self.follower_arms[name].leader_pos = leader_pos
+            # self.follower_arms[name].leader_pos = leader_pos
             self.logs[f"read_leader_{name}_pos_dt_s"] = time.perf_counter() - read_start
 
             # 电机数据到关节角度的转换，关节角度处理（向量化操作）
@@ -526,10 +530,10 @@ class AdoraDualManipulator:
                     value = -value
 
                 # 限幅
-                clamped_value = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], value[i]))
+                clamped_value = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], value))
 
                 # 移动平均滤波
-                filter_value = self.filters[i].update(clamped_value)
+                filter_value = self.follower_arms[name].filters[i].update(clamped_value)
 
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
@@ -551,12 +555,10 @@ class AdoraDualManipulator:
 
         if not record_data:
             return
-        
-        eight_byte_array = np.zeros(8, dtype=np.float32)
-        goal_eight_byte_array = np.zeros(8, dtype=np.float32)
 
         follower_pos = {}
         for name in self.follower_arms:
+            eight_byte_array = np.zeros(8, dtype=np.float32)
             
             now = time.perf_counter()
             joint_teleop_read = self.follower_arms[name].get_joint_degree()
@@ -581,6 +583,7 @@ class AdoraDualManipulator:
         #将关节目标位置添加到 action 列表中
         action = []
         for name in self.leader_arms:
+            goal_eight_byte_array = np.zeros(8, dtype=np.float32)
             goal_eight_byte_array[:7] = self.follower_arms[name].joint_teleop_write[:]
             goal_eight_byte_array[7] = self.follower_arms[name].clipped_gripper
             follower_goal_pos = torch.from_numpy(goal_eight_byte_array)
@@ -592,7 +595,7 @@ class AdoraDualManipulator:
         images = {}
         for name in self.cameras:
             now = time.perf_counter()
-            images[name] = self.cameras[name].async_read()
+            images[name] = self.cameras[name].read()
             images[name] = torch.from_numpy(images[name])
             self.logs[f"read_camera_{name}_dt_s"] = self.cameras[name].logs["delta_timestamp_s"]
             self.logs[f"async_read_camera_{name}_dt_s"] = time.perf_counter() - now

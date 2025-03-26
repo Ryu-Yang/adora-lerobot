@@ -62,21 +62,21 @@ def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, f
         for name in robot.leader_arms:
             key = f"read_leader_{name}_pos_dt_s"
             if key in robot.logs:
-                log_dt("dtRlead", robot.logs[key])
+                log_dt(f"dt_R_leader_{name}", robot.logs[key])
 
-        # for name in robot.follower_arms:
-        #     key = f"write_follower_{name}_goal_pos_dt_s"
-        #     if key in robot.logs:
-        #         log_dt("dtWfoll", robot.logs[key])
+        for name in robot.follower_arms:
+            key = f"write_follower_{name}_goal_pos_dt_s"
+            if key in robot.logs:
+                log_dt(f"dt_W_foll_{name}", robot.logs[key])
 
-        #     key = f"read_follower_{name}_pos_dt_s"
-        #     if key in robot.logs:
-        #         log_dt("dtRfoll", robot.logs[key])
+            key = f"read_follower_{name}_pos_dt_s"
+            if key in robot.logs:
+                log_dt(f"dt_R_foll_{name}", robot.logs[key])
 
         for name in robot.cameras:
             key = f"read_camera_{name}_dt_s"
             if key in robot.logs:
-                log_dt(f"dtR{name}", robot.logs[key])
+                log_dt(f"dt_R_camera_{name}", robot.logs[key])
 
     info_str = " ".join(log_items)
     logging.info(info_str)
@@ -275,7 +275,7 @@ def control_loop(
             for key in image_keys:
                 cv2.imshow(key, cv2.cvtColor(observation[key].numpy(), cv2.COLOR_RGB2BGR))
             print("after show display_cameras ")
-            keboard_key = cv2.waitKey(1)
+        keboard_key = cv2.waitKey(1)
 
         # print("after display_cameras ")
         if fps is not None:
