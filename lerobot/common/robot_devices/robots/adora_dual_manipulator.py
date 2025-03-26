@@ -280,11 +280,9 @@ class GEN72Arm:
         #推理输出部分-接收模型推理的关节角度，写入gen72 API中
         self.joint_send=float_joint()
 
-        self.frame_counter = 0  # 帧计数器
-
-        self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
-
         self.old_grasp = 100
+
+        self.clipped_gripper = 100
 
         #gen72API
         self.pDll.Movej_Cmd.argtypes = (ctypes.c_int, ctypes.c_float * 7, ctypes.c_byte, ctypes.c_float, ctypes.c_bool)
@@ -336,6 +334,13 @@ class GEN72Arm:
         c_gripper = (ctypes.c_int)(*clipped_gripper)
         self.pDll.Write_Single_Register(self.nSocket, 1, 40000, c_gripper, 1, 0)
 
+    def get_joint_degree(self):
+        self.pDll.Get_Joint_Degree(self.nSocket, self.joint_teleop_read)
+        return self.joint_teleop_read
+    
+    def disconnect(self):
+        self.pDll.Close_Modbus_Mode(self.nSocket, 1, 1)
+
 
 class AdoraDualManipulator:
     # TODO(rcadene): Implement force feedback
@@ -368,6 +373,9 @@ class AdoraDualManipulator:
         
         self.is_connected = False
         self.logs = {}
+        self.frame_counter = 0  # 帧计数器
+
+        self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
         
 
     def get_motor_names(self, arm: dict[str, MotorsBus]) -> list:
@@ -505,7 +513,7 @@ class AdoraDualManipulator:
             # 读取领导臂电机数据
             read_start = time.perf_counter()
             leader_pos = self.leader_arms[name].read("Present_Position")
-            self.leader_arms[name].leader_pos = leader_pos
+            self.follower_arms[name].leader_pos = leader_pos
             self.logs[f"read_leader_{name}_pos_dt_s"] = time.perf_counter() - read_start
 
             # 电机数据到关节角度的转换，关节角度处理（向量化操作）
@@ -518,7 +526,7 @@ class AdoraDualManipulator:
                     value = -value
 
                 # 限幅
-                clamped_value = max(self.joint_n_limit[i], min(self.joint_p_limit[i], value[i]))
+                clamped_value = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], value[i]))
 
                 # 移动平均滤波
                 filter_value = self.filters[i].update(clamped_value)
@@ -526,17 +534,17 @@ class AdoraDualManipulator:
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
                 # 直接使用内存视图操作
-                self.leader_arms[name].joint_teleop_write[i] = filter_value
+                self.follower_arms[name].joint_teleop_write[i] = filter_value
 
             # 电机角度到夹爪开合度的换算
             giper_value = leader_pos[7] * GRIPPER_SCALE + GRIPPER_OFFSET
-            clamped_giper = max(0, min(100, int(giper_value)))
+            self.follower_arms[name].clipped_gripper = max(0, min(100, int(giper_value)))
 
             # 机械臂执行动作（调用透传API，控制gen72移动到目标位置）
             write_start = time.perf_counter()
-            self.follower_arms[name].movej_canfd(self.leader_arms[name].joint_teleop_write)
+            self.follower_arms[name].movej_canfd(self.follower_arms[name].joint_teleop_write)
             if self.frame_counter % 5 == 0:
-                self.follower_arms[name].write_single_register(clamped_giper)
+                self.follower_arms[name].write_single_register(self.follower_arms[name].clipped_gripper)
             self.logs[f"write_follower_{name}_goal_pos_dt_s"] = time.perf_counter() - write_start
 
         print("end teleoperate")
@@ -547,40 +555,36 @@ class AdoraDualManipulator:
         eight_byte_array = np.zeros(8, dtype=np.float32)
         goal_eight_byte_array = np.zeros(8, dtype=np.float32)
 
-        for name in self.leader_arms:
-            #调用API获取gen72当前关节角度
-            now = time.perf_counter()
-            self.pDll.Get_Joint_Degree(self.nSocket,self.joint_teleop_read)
-            # giper_read=ctypes.c_int()
-            # self.pDll.Get_Read_Holding_Registers(self.nSocket,1, 40000, 1, ctypes.byref(giper_read))
-
-            # for i in range(7):
-            #     self.joint_teleop_read[i] = 0
-            #获取夹爪开合度
+        follower_pos = {}
+        for name in self.follower_arms:
             
-            eight_byte_array[:7] = self.joint_teleop_read[:]
+            now = time.perf_counter()
+            joint_teleop_read = self.follower_arms[name].get_joint_degree()
 
+            
+            eight_byte_array[:7] = joint_teleop_read[:]
 
-            # self.joint_obs_present[7]=giper_read.value
-            eight_byte_array[7] = self.old_grasp
+            eight_byte_array[7] = self.follower_arms[name].old_grasp
             eight_byte_array = np.round(eight_byte_array, 2)
             self.logs[f"read_follower_{name}_pos_dt_s"] = time.perf_counter() - now
-            follower_pos = torch.from_numpy(eight_byte_array)
+            follower_pos[name] = torch.from_numpy(eight_byte_array)
         
-        self.old_grasp=clamped_giper
+            self.follower_arms[name].old_grasp=self.follower_arms[name].clipped_gripper
 
         #记录当前关节角度
         state = []
-        for name in self.leader_arms:
-            state.append(follower_pos)
+        for name in self.follower_arms:
+            if name in follower_pos:
+                state.append(follower_pos[name])
         state = torch.cat(state)
 
         #将关节目标位置添加到 action 列表中
-        goal_eight_byte_array[:7] = self.joint_teleop_write[:]
-        goal_eight_byte_array[7] = clamped_giper
-        follower_goal_pos = torch.from_numpy(goal_eight_byte_array)
         action = []
         for name in self.leader_arms:
+            goal_eight_byte_array[:7] = self.follower_arms[name].joint_teleop_write[:]
+            goal_eight_byte_array[7] = self.follower_arms[name].clipped_gripper
+            follower_goal_pos = torch.from_numpy(goal_eight_byte_array)
+
             action.append(follower_goal_pos)
         action = torch.cat(action)
 
@@ -664,27 +668,28 @@ class AdoraDualManipulator:
 
         eight_byte_array = np.zeros(8, dtype=np.float32)
 
-        #调用从臂api获取当前关节角度 
-        for name in self.leader_arms:
+        follower_pos = {}
+        for name in self.follower_arms:
             now = time.perf_counter()
-            self.pDll.Get_Joint_Degree(self.nSocket,self.joint_obs_read)  
+            joint_obs_read = self.follower_arms[name].get_joint_degree()
             #夹爪通信获取当前夹爪开合度
             # giper_read=ctypes.c_int()
             # self.pDll.Get_Read_Holding_Registers(self.nSocket,1,40000,1,ctypes.byref(giper_read))
             #   #八位数组存储关节和夹爪数据
-            eight_byte_array[:7]=self.joint_obs_read[:]
+            eight_byte_array[:7] = joint_obs_read[:]
             # self.joint_obs_present[7]=giper_read.value
-            eight_byte_array[7] = self.old_grasp
+            eight_byte_array[7] = self.follower_arms[name].old_grasp
             # self.joint_obs_present = np.zeros(8)  # 创建一个包含八个0的 NumPy 数组
             eight_byte_array = np.round(eight_byte_array, 2)
-            follower_pos = torch.from_numpy(eight_byte_array)
+            follower_pos[name] = torch.from_numpy(eight_byte_array)
             self.logs[f"read_follower_{name}_pos_dt_s"] = time.perf_counter() - now
 
         # Create state by concatenating follower current position
         #上传当前机械臂状态
         state = []
-        for name in self.leader_arms:
-            state.append(follower_pos)    
+        for name in self.follower_arms:
+            if name in follower_pos:
+                state.append(follower_pos[name])    
         state = torch.cat(state)
 
         # Capture images from cameras
@@ -716,14 +721,14 @@ class AdoraDualManipulator:
         to_idx = 8
 
         action_sent = []
-        for name in self.leader_arms:
+        for name in self.follower_arms:
             
             goal_pos = action[from_idx:to_idx]
             for i in range(7):
-                self.joint_send[i] = max(self.joint_n_limit[i], min(self.joint_p_limit[i], goal_pos[i]))
+                self.follower_arms[name].joint_send[i] = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], goal_pos[i]))
             
             
-            self.pDll.Movej_CANFD(self.nSocket,self.joint_send,FLAG_FOLLOW,0)
+            self.follower_arms[name].movej_canfd(self.follower_arms[name].joint_send)
             # if (goal_pos[7]<50):
             #     # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(follower_goal_pos_array[7]), 1, 1)
             #     ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 0 , 1, 1)
@@ -733,10 +738,10 @@ class AdoraDualManipulator:
             #     # ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, int(follower_goal_pos_array[7]), 1, 1)
             #     ret_giper = self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
             #     self.gipflag_send=1
-            giper_value = max(0, min(100, int(goal_pos[7])))
+            gripper_value = max(0, min(100, int(goal_pos[7])))
 
-            self.old_grasp = giper_value
-            self.pDll.Write_Single_Register(self.nSocket, 1, 40000, giper_value, 1, 0)
+            self.follower_arms[name].old_grasp = gripper_value
+            self.follower_arms[name].write_single_register(gripper_value)
             action_sent.append(goal_pos)
 
         return torch.cat(action_sent)
@@ -746,14 +751,16 @@ class AdoraDualManipulator:
             raise RobotDeviceNotConnectedError(
                 "KochRobot is not connected. You need to run `robot.connect()` before disconnecting."
             )
-        # for name in self.follower_arms:
-        #     self.follower_arms[name].disconnect()
+        
+        for name in self.follower_arms:
+            self.follower_arms[name].disconnect()
+
         for name in self.leader_arms:
             self.leader_arms[name].disconnect()
+
         for name in self.cameras:
             self.cameras[name].disconnect()
-        #modbus接口关闭
-        self.pDll.Close_Modbus_Mode(self.nSocket,1,1)
+
         self.is_connected = False
 
     def __del__(self):
