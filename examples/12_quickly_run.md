@@ -26,14 +26,15 @@ python lerobot/scripts/control_robot.py \
   --control.fps=10 \
   --control.repo_id=Ryu-Yang/adora_dual_grasp \
   --control.tags='["tutorial"]' \
-  --control.warmup_time_s=5 \
+  --control.warmup_time_s=60 \
   --control.episode_time_s=60 \
-  --control.reset_time_s=50 \
-  --control.num_episodes=3 \
+  --control.reset_time_s=60 \
+  --control.num_episodes=27 \
   --control.push_to_hub=true \
   --control.resume=true
-```
 
+```
+  --control.resume=true
 Checkpoints are done during recording, so if any issue occurs, you can resume recording by re-running the same command again with `--control.resume=true`. You will need to manually delete the dataset directory if you want to start recording from scratch.
 
 # 查看

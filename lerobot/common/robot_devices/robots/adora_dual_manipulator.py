@@ -446,30 +446,30 @@ class AdoraDualManipulator:
             print(f"Connecting {name} leader arm.")
             self.leader_arms[name].connect()
 
-            # Reset the arms and load or run calibration
-            if self.calibration_path[name].exists():
+            # # Reset the arms and load or run calibration
+            # if self.calibration_path[name].exists():
 
-                reset_arm(self.leader_arms[name])
+            #     reset_arm(self.leader_arms[name])
 
-                with open(self.calibration_path[name], "rb") as f:
-                    calibration = pickle.load(f)
+            #     with open(self.calibration_path[name], "rb") as f:
+            #         calibration = pickle.load(f)
 
-                #gen72关节初始化，移动到 初始位置
-                ret=self.follower_arms[name].movej_cmd(self.follower_arms[name].start_pose)
-                print('机械臂回到 初始位置 ',ret)
-            else:
+            #     #gen72关节初始化，移动到 初始位置
+            #     ret=self.follower_arms[name].movej_cmd(self.follower_arms[name].start_pose)
+            #     print('机械臂回到 初始位置 ',ret)
+            # else:
                 # Run calibration process which begins by reseting all arms
-                print(f"run_calibration {name} leader arm.")
-                calibration = self.run_calibration(name)
-                print(f"end run_calibration {name} leader arm.")
+            print(f"run_calibration {name} leader arm.")
+            calibration = self.run_calibration(name)
+            print(f"end run_calibration {name} leader arm.")
 
-                self.calibration_path[name].parent.mkdir(parents=True, exist_ok=True)
-                with open(self.calibration_path[name], "wb") as f:
-                    pickle.dump(calibration, f)
+                # self.calibration_path[name].parent.mkdir(parents=True, exist_ok=True)
+                # with open(self.calibration_path[name], "wb") as f:
+                #     pickle.dump(calibration, f)
 
                 #gen72关节初始化，移动到 零位
-                ret=self.follower_arms[name].movej_cmd([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-                print('机械臂回到 零位 ',ret)
+            ret=self.follower_arms[name].movej_cmd([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            print('机械臂回到 零位 ',ret)
             
             print(f"{name} leader arm :  set calib and gripper")
             # Set calibration
