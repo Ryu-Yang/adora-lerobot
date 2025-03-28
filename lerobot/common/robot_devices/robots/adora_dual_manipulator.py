@@ -24,6 +24,9 @@ from lerobot.common.robot_devices.utils import RobotDeviceAlreadyConnectedError,
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 from lerobot.common.robot_devices.robots.configs import AdoraDualRobotConfig
+from functools import cache
+import traceback
+import logging
 
 
 URL_HORIZONTAL_POSITION = {
@@ -42,7 +45,7 @@ URL_90_DEGREE_POSITION = {
 
 TARGET_HORIZONTAL_POSITION = np.array([0, 0, 0, 0, 0, 0, 0, 0])
 TARGET_90_DEGREE_POSITION = np.array([0, 0, 0, 0, 0, 0, 0, 0])
-GRIPPER_OPEN = np.array([-400])
+GRIPPER_OPEN = np.array([600])
 
 FLAG_FOLLOW=0 #1为高跟随,0为低跟随
 
@@ -50,8 +53,8 @@ WINDOW_SIZE = 2
 
 # 常量预计算
 SCALE_FACTOR = 90 / 1024  # 电机值到关节角度的比例系数
-GRIPPER_SCALE = (90 * 100) / (1024 * 62)  # 夹爪转换比例系数
-GRIPPER_OFFSET = (98 * 100) / 62          # 夹爪转换偏移量
+GRIPPER_SCALE = 100 / 600  # 夹爪转换比例系数
+# GRIPPER_OFFSET = (98 * 100) / 62          # 夹爪转换偏移量
 
 DLL_PATH = os.getenv("DLL_PATH", "lerobot/common/robot_devices/robots/libs")
 
@@ -67,6 +70,54 @@ elif sys.platform == "win32":
 else:
     DLL_PATH = os.path.join(DLL_PATH, 'linux_arm', 'libRM_Base.so.1.0.0')
 
+@cache
+def is_headless():
+    """Detects if python is running without a monitor."""
+    try:
+        import pynput  # noqa
+
+        return False
+    except Exception:
+        print(
+            "Error trying to import pynput. Switching to headless mode. "
+            "As a result, the video stream from the cameras won't be shown, "
+            "and you won't be able to change the control flow with keyboards. "
+            "For more info, see traceback below.\n"
+        )
+        traceback.print_exc()
+        print()
+        return True
+
+def init_keyboard_listener():
+    # Allow to exit early while recording an episode or resetting the environment,
+    # by tapping the right arrow key '->'. This might require a sudo permission
+    # to allow your terminal to monitor keyboard events.
+    events = {}
+    events["complete"] = False
+
+    if is_headless():
+        logging.warning(
+            "Headless environment detected. On-screen cameras display and keyboard inputs will not be available."
+        )
+        listener = None
+        return listener, events
+
+    # Only import pynput if not in a headless environment
+    from pynput import keyboard
+
+    def on_press(key):
+        try:
+            hasattr(key, 'char')
+            if key.char.lower() == 'q':
+                print("key pressed")
+                events["complete"] = True
+        except Exception as e:
+            print(f"Error handling key press: {e}")
+
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
+
+    return listener, events
 
 def apply_homing_offset(values: np.array, homing_offset: np.array) -> np.array:
     for i in range(len(values)):
@@ -160,10 +211,22 @@ def compute_drive_mode(arm: DynamixelMotorsBus, offset: np.array):
         drive_mode.append(nearest_positions[i] != TARGET_90_DEGREE_POSITION[i])
     return drive_mode
 
-#重置电机的状态，禁用扭矩模式，设置伺服电机的模式
+# 初始化电机
+def init_arm(arm: MotorsBus):
+    arm.write("Torque_Enable", TorqueMode.ENABLED.value)
+    arm.write("Operating_Mode", OperatingMode.CURRENT_CONTROLLED_POSITION.value)
+    arm.write("Goal_Current", 300)
+
+    # Make sure the native calibration (homing offset abd drive mode) is disabled, since we use our own calibration layer to be more generic
+    arm.write("Homing_Offset", 0)
+    arm.write("Drive_Mode", DriveMode.NON_INVERTED.value)
+
+    print("init_arm: OK!")
+
+# 重置电机的状态，禁用扭矩模式，设置伺服电机的模式
 def reset_arm(arm: MotorsBus):
     # To be configured, all servos must be in "torque disable" mode
-    arm.write("Torque_Enable", TorqueMode.DISABLED.value)#将所有伺服电机的扭矩模式设置为禁用，以确保电机在重置过程中不会施加力量。
+    arm.write("Torque_Enable", TorqueMode.DISABLED.value)   # 将所有伺服电机的扭矩模式设置为禁用，以确保电机在重置过程中不会施加力量。
 
     # Use 'extended position mode' for all motors except gripper, because in joint mode the servos can't
     # rotate more than 360 degrees (from 0 to 4095) And some mistake can happen while assembling the arm,
@@ -177,9 +240,9 @@ def reset_arm(arm: MotorsBus):
     arm.write("Operating_Mode", OperatingMode.CURRENT_CONTROLLED_POSITION.value, "gripper")
     arm.write("Goal_Current", 50, "gripper")
 
-    # Make sure the native calibration (homing offset abd drive mode) is disabled, since we use our own calibration layer to be more generic
-    arm.write("Homing_Offset", 0)
-    arm.write("Drive_Mode", DriveMode.NON_INVERTED.value)
+    # Set gripper
+    arm.write("Torque_Enable", 1, "gripper")
+    arm.write("Goal_Position", GRIPPER_OPEN, "gripper")
 
     print("reset_arm: OK!")
 
@@ -191,7 +254,44 @@ def run_arm_calibration(arm: MotorsBus, name: str, arm_type: str):
     ```
     """
     #先重置机械臂
-    reset_arm(arm)
+    init_arm(arm)
+    
+    listener, events = init_keyboard_listener()
+
+    print(f"Calibrate {name} arm.")
+
+    while True:
+        current = arm.read("Present_Current")
+        my_pos = arm.read("Present_Position")
+        print(f"current = {current}")
+        print(f"my_pos = {my_pos}")
+        for index, value in enumerate(current, start=0):
+            if value >> 15 == 1:
+                buma = value  # 补码（这里实际上只是获取 value[0] 的值）
+                fanma = buma - 1  # 反码（这里实际上是 value[0] 减 1）
+                yuanma = int(format(~fanma & 0xFFFF, '016b'), 2)  # 原码（这里是对 fanma 进行按位取反操作）  
+                p_current = yuanma * -1
+            else:
+                p_current = float(value)
+            print(f"index = {index}, value = {value}, p_current = {p_current}")
+            print(f"index = {index}, current[{index}] = {current[index]}")
+            print(f"index = {index}, my_pos[{index}] = {my_pos[index]}")
+            print(f"index = {index}, arm.motor_names[{index}] = {arm.motor_names[index]}")
+            if abs(p_current) >= 150:
+                arm.write("Goal_Position", my_pos[index], arm.motor_names[index])
+        if events["complete"]:
+            old_gripper = arm.read("Present_Position", "gripper")
+            print(f"Will complete {name} arm calibration")
+            while True:
+                gripper = arm.read("Present_Position", "gripper")
+                print(f"gripper = {gripper}")
+                if abs(gripper - old_gripper) >= 150:
+                    break
+            break
+
+    if not is_headless():
+        if listener is not None:
+            listener.stop()
 
     #提示用户放置到水平位置
     # TODO(rcadene): document what position 1 mean
@@ -475,15 +575,16 @@ class AdoraDualManipulator:
             # Set calibration
             self.leader_arms[name].set_calibration(calibration[f"leader_{name}"])
 
-            # Set gripper
-            self.leader_arms[name].write("Torque_Enable", 1, "gripper")
-            self.leader_arms[name].write("Goal_Position", GRIPPER_OPEN, "gripper")
 
             print(f"Connect {name} leader arm Sucsses!")
 
         # Connect the cameras
         for name in self.cameras:
             self.cameras[name].connect()
+
+        for name in self.leader_arms:
+            reset_arm(self.leader_arms[name])
+
 
         self.is_connected = True
 
@@ -541,13 +642,14 @@ class AdoraDualManipulator:
                 self.follower_arms[name].joint_teleop_write[i] = filter_value
 
             # 电机角度到夹爪开合度的换算
-            giper_value = leader_pos[7] * GRIPPER_SCALE + GRIPPER_OFFSET
+            giper_value = leader_pos[7] * GRIPPER_SCALE
             self.follower_arms[name].clipped_gripper = max(0, min(100, int(giper_value)))
 
             # 机械臂执行动作（调用透传API，控制gen72移动到目标位置）
             write_start = time.perf_counter()
             self.follower_arms[name].movej_canfd(self.follower_arms[name].joint_teleop_write)
             if self.frame_counter % 5 == 0:
+                self.frame_counter = 0
                 self.follower_arms[name].write_single_register(self.follower_arms[name].clipped_gripper)
             self.logs[f"write_follower_{name}_goal_pos_dt_s"] = time.perf_counter() - write_start
 
@@ -669,11 +771,10 @@ class AdoraDualManipulator:
                 "KochRobot is not connected. You need to run `robot.connect()`."
             )
 
-        eight_byte_array = np.zeros(8, dtype=np.float32)
-
         follower_pos = {}
         for name in self.follower_arms:
             now = time.perf_counter()
+            eight_byte_array = np.zeros(8, dtype=np.float32)
             joint_obs_read = self.follower_arms[name].get_joint_degree()
             #夹爪通信获取当前夹爪开合度
             # giper_read=ctypes.c_int()
@@ -722,11 +823,13 @@ class AdoraDualManipulator:
             )
         from_idx = 0
         to_idx = 8
-
+        index = 0
         action_sent = []
         for name in self.follower_arms:
-            
-            goal_pos = action[from_idx:to_idx]
+
+            goal_pos = action[index*8+from_idx:index*8+to_idx]
+            index+=1
+
             for i in range(7):
                 self.follower_arms[name].joint_send[i] = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], goal_pos[i]))
             
@@ -743,8 +846,12 @@ class AdoraDualManipulator:
             #     self.gipflag_send=1
             gripper_value = max(0, min(100, int(goal_pos[7])))
 
+            self.frame_counter += 1
+
             self.follower_arms[name].old_grasp = gripper_value
-            self.follower_arms[name].write_single_register(gripper_value)
+            if self.frame_counter % 5 == 0:
+                self.frame_counter = 0
+                self.follower_arms[name].write_single_register(gripper_value)
             action_sent.append(goal_pos)
 
         return torch.cat(action_sent)
