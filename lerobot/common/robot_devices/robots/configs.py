@@ -678,6 +678,7 @@ class AdoraDualRobotConfig(RobotConfig):
     right_arm_config = {}
     right_arm_config['usb_port'] = "/dev/ttyUSB0"
     right_arm_config['ip'] = "192.168.1.19"
+    right_arm_config['fps'] = 30
     right_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_right"
     right_arm_config['start_pose'] = [90.0, 90.0, -90.0, -90.0, 0.0, 0.0, 0.0]
     right_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
@@ -699,6 +700,7 @@ class AdoraDualRobotConfig(RobotConfig):
     left_arm_config = {}
     left_arm_config['usb_port'] = "/dev/ttyUSB1"
     left_arm_config['ip'] = "192.168.1.20"
+    left_arm_config['fps'] = 30
     left_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_left"
     left_arm_config['start_pose'] = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
     left_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
@@ -720,7 +722,7 @@ class AdoraDualRobotConfig(RobotConfig):
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "top": OpenCVCameraConfig(
-                camera_index=26,
+                camera_index=10,
                 fps=30,
                 width=640,
                 height=480,
@@ -732,7 +734,7 @@ class AdoraDualRobotConfig(RobotConfig):
                 height=480,
             ),
             "right_wrist": OpenCVCameraConfig(
-                camera_index=10,
+                camera_index=26,
                 fps=30,
                 width=640,
                 height=480,
