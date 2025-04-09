@@ -720,19 +720,19 @@ class AdoraDualRobotConfig(RobotConfig):
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "top": OpenCVCameraConfig(
-                camera_index=26,
+                camera_index=14,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "left_wrist": OpenCVCameraConfig(
-                camera_index=18,
+                camera_index=6,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "right_wrist": OpenCVCameraConfig(
-                camera_index=10,
+                camera_index=22,
                 fps=30,
                 width=640,
                 height=480,
