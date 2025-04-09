@@ -22,16 +22,16 @@ confirm the `--robot.type` before start
 python lerobot/scripts/control_robot.py \
   --robot.type=adora_dual \
   --control.type=record \
-  --control.single_task="Grasp a orange and put it in the bowl." \
+  --control.single_task="Stacking cloth" \
   --control.fps=10 \
-  --control.repo_id=Ryu-Yang/adora_dual_grasp \
+  --control.repo_id=Ryu-Yang/adora_dual_stacking_cloth \
   --control.tags='["tutorial"]' \
-  --control.warmup_time_s=60 \
-  --control.episode_time_s=60 \
-  --control.reset_time_s=60 \
-  --control.num_episodes=27 \
-  --control.push_to_hub=true \
-  --control.resume=true
+  --control.warmup_time_s=240 \
+  --control.episode_time_s=240 \
+  --control.reset_time_s=240 \
+  --control.num_episodes=20 \
+  --control.push_to_hub=false \
+  --control.resume=false
 
 ```
   --control.resume=true
@@ -41,7 +41,7 @@ Checkpoints are done during recording, so if any issue occurs, you can resume re
 
 ```
 python lerobot/scripts/visualize_dataset_html.py \
-  --repo-id Ryu-Yang/adora_grasp
+  --repo-id Ryu-Yang/adora_dual_grasp
 ```
 
 # 训练
@@ -62,13 +62,13 @@ python lerobot/scripts/control_robot.py \
   --robot.type=adora_dual \
   --control.type=record \
   --control.fps=10 \
-  --control.single_task="Grasp a orange and put it in the bowl." \
-  --control.repo_id=Ryu-Yang/eval_act_adora_dual_grasp \
+  --control.single_task="Grasp fruit and put them in the bowl." \
+  --control.repo_id=Ryu-Yang/eval_act_adora_dual_grasp_best \
   --control.tags='["tutorial"]' \
-  --control.warmup_time_s=60 \
-  --control.episode_time_s=60 \
-  --control.reset_time_s=60 \
-  --control.num_episodes=5 \
+  --control.warmup_time_s=240 \
+  --control.episode_time_s=240 \
+  --control.reset_time_s=240 \
+  --control.num_episodes=3 \
   --control.push_to_hub=true \
-  --control.policy.path=outputs/train/act_adora_dual_grasp/checkpoints/last/pretrained_model
+  --control.policy.path=outputs/train/act_adora_dual_grasp_best/checkpoints/060000/pretrained_model
 ```
