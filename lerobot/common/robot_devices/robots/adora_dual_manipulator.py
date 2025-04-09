@@ -684,12 +684,13 @@ class AdoraDualManipulator:
                 clamped_value = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], value))
 
                 # 移动平均滤波
-                filter_value = self.follower_arms[name].filters[i].update(clamped_value)
+                # filter_value = self.follower_arms[name].filters[i].update(clamped_value)
 
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
                 # 直接使用内存视图操作
-                self.follower_arms[name].joint_teleop_write[i] = filter_value
+                # self.follower_arms[name].joint_teleop_write[i] = filter_value
+                self.follower_arms[name].joint_teleop_write[i] = clamped_value
 
             # 电机角度到夹爪开合度的换算
             giper_value = leader_pos[7] * GRIPPER_SCALE

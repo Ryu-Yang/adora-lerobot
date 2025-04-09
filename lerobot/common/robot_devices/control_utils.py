@@ -37,6 +37,9 @@ from lerobot.common.robot_devices.robots.utils import Robot
 from lerobot.common.robot_devices.utils import busy_wait
 from lerobot.common.utils.utils import get_safe_torch_device, has_method
 
+from threading import Thread
+import threading
+
 
 def log_control_info(robot: Robot, dt_s, episode_index=None, frame_index=None, fps=None):
     log_items = []
@@ -160,6 +163,10 @@ def init_keyboard_listener():
                 print("Escape key pressed. Stopping data recording...")
                 events["stop_recording"] = True
                 events["exit_early"] = True
+            elif key.char == 'q' or key.char == 'Q':  # 检测q键（不区分大小写）
+                print("Q key pressed.")
+                events["exit_early"] = True
+
         except Exception as e:
             print(f"Error handling key press: {e}")
 
@@ -210,6 +217,47 @@ def record_episode(
     )
 
 
+class ImageShow:
+    def __init__(self, fps):
+        self.thread = None
+        self.stop_event = None
+        self.name = None
+        self.image = None
+        self.fps = fps
+        self.logs = {}
+
+    def image_show_loop(self):
+        while not self.stop_event.is_set():
+            if (self.name is not None) and (self.image is not None):
+                try:
+                    cv2.imshow(self.name, cv2.cvtColor(self.image.numpy(), cv2.COLOR_RGB2BGR))
+                    cv2.waitKey(1)
+
+                    self.name, self.image = None, None
+                    
+                except Exception as e:
+                    print(f"Error reading in thread: {e}")
+            time.sleep(1 / self.fps)
+
+    def async_image_show(self, name, image):
+        if self.thread is None:
+            self.stop_event = threading.Event()
+            self.thread = Thread(target=self.image_show_loop, args=())
+            self.thread.daemon = True
+            self.thread.start()
+
+        self.name, self.image = name, image
+
+        
+    def disconnect(self):
+        if self.thread is not None:
+            self.stop_event.set()
+            self.thread.join()  # wait for the thread to finish
+            self.thread = None
+            self.stop_event = None
+        cv2.destroyWindows(self.name)
+
+
 @safe_stop_image_writer
 def control_loop(
     robot,
@@ -243,8 +291,12 @@ def control_loop(
 
     timestamp = 0
     start_episode_t = time.perf_counter()
+    # image_show = [ImageShow(30) for _ in range(3)]
+
     while timestamp < control_time_s:
         start_loop_t = time.perf_counter()
+
+        teleoperate_start_t = time.perf_counter()
 
         if teleoperate:
             print("In teleoperate")
@@ -261,21 +313,27 @@ def control_loop(
                 # so action actually sent is saved in the dataset.
                 action = robot.send_action(pred_action)
                 action = {"action": action}
+        
+        teleoperate_dt_s = time.perf_counter() - teleoperate_start_t
+        print(f"teleoperate_dt_s = {teleoperate_dt_s}")
 
         if dataset is not None:
             frame = {**observation, **action, "task": single_task}
             dataset.add_frame(frame)
 
         # print("after dataset ")
-        keboard_key = 0
+        cv2_display_start_t = time.perf_counter()
+        # keboard_key = 0
         if display_cameras and not is_headless():
             # print("in display_cameras ")
             image_keys = [key for key in observation if "image" in key]
-            print("after key display_cameras")
-            for key in image_keys:
+            for i, key in enumerate(image_keys, start=1):
+                # image_show[i].async_image_show(key, observation[key])
                 cv2.imshow(key, cv2.cvtColor(observation[key].numpy(), cv2.COLOR_RGB2BGR))
-            print("after show display_cameras ")
-        keboard_key = cv2.waitKey(1)
+
+        # keboard_key = cv2.waitKey(1)
+        cv_display_dt_s = time.perf_counter() - cv2_display_start_t
+        print(f"cv_display_dt_s = {cv_display_dt_s}")
 
         # print("after display_cameras ")
         if fps is not None:
@@ -283,13 +341,17 @@ def control_loop(
             busy_wait(1 / fps - dt_s)
 
         dt_s = time.perf_counter() - start_loop_t
+        print(f"dt_s = {dt_s}")
         log_control_info(robot, dt_s, fps=fps)
 
         timestamp = time.perf_counter() - start_episode_t
-        if events["exit_early"] | keboard_key&0xFF==ord('q'):
+        # if events["exit_early"] | keboard_key & 0xFF == ord('q'):
+        if events["exit_early"]:
             events["exit_early"] = False
             break
-
+    
+    for i in range(3):
+        image_show[i].disconnect()
 
 def reset_environment(robot, events, reset_time_s, fps):
     # TODO(rcadene): refactor warmup_record and reset_environment
