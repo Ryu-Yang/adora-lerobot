@@ -331,7 +331,7 @@ def control_loop(
                 # image_show[i].async_image_show(key, observation[key])
                 cv2.imshow(key, cv2.cvtColor(observation[key].numpy(), cv2.COLOR_RGB2BGR))
 
-        # keboard_key = cv2.waitKey(1)
+        keboard_key = cv2.waitKey(1)
         cv_display_dt_s = time.perf_counter() - cv2_display_start_t
         print(f"cv_display_dt_s = {cv_display_dt_s}")
 
@@ -345,13 +345,13 @@ def control_loop(
         log_control_info(robot, dt_s, fps=fps)
 
         timestamp = time.perf_counter() - start_episode_t
-        # if events["exit_early"] | keboard_key & 0xFF == ord('q'):
-        if events["exit_early"]:
+        if events["exit_early"] | keboard_key & 0xFF == ord('q'):
+        # if events["exit_early"]:
             events["exit_early"] = False
             break
     
-    for i in range(3):
-        image_show[i].disconnect()
+    # for i in range(3):
+    #     image_show[i].disconnect()
 
 def reset_environment(robot, events, reset_time_s, fps):
     # TODO(rcadene): refactor warmup_record and reset_environment
