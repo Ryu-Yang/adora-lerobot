@@ -68,6 +68,8 @@ def make_robot_config(robot_type: str, **kwargs) -> RobotConfig:
         return AdoraRobotConfig(**kwargs)
     elif robot_type == "adora_dual":
         return AdoraDualRobotConfig(**kwargs)
+    elif robot_type == "realman":
+        return RealmanRobotConfig(**kwargs)
     else:
         raise ValueError(f"Robot type '{robot_type}' is not available.")
 
@@ -92,6 +94,11 @@ def make_robot_from_config(config: RobotConfig):
         from lerobot.common.robot_devices.robots.adora_dual_manipulator import AdoraDualManipulator
         print("In AdoraDualRobotConfig")
         return AdoraDualManipulator(config)
+    
+    elif isinstance(config, RealmanRobotConfig):
+        from lerobot.common.robot_devices.robots.realman_manipulator import RealmanManipulator
+        print("In RealmanRobotConfig")
+        return RealmanManipulator(config)
     
     else: 
         from lerobot.common.robot_devices.robots.stretch import StretchRobot
