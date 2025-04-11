@@ -1,5 +1,7 @@
 #!/bin/bash
 
+conda activate lerobot
+
 # 设置USB设备权限
 sudo chmod 777 /dev/ttyUSB0
 sudo chmod 777 /dev/ttyUSB1
