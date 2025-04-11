@@ -26,6 +26,7 @@ from lerobot.common.robot_devices.robots.configs import (
     StretchRobotConfig,
     AdoraRobotConfig,
     AdoraDualRobotConfig,
+    RealmanRobotConfig,
 )
 
 
