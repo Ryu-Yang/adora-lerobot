@@ -26,6 +26,9 @@ from lerobot.common.robot_devices.motors.configs import DynamixelMotorsBusConfig
 from lerobot.common.robot_devices.utils import RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError
 from lerobot.common.utils.utils import capture_timestamp_utc
 
+from threading import Thread
+import threading
+
 PROTOCOL_VERSION = 2.0
 BAUDRATE = 2_000_000
 TIMEOUT_MS = 1000
@@ -333,6 +336,13 @@ class DynamixelMotorsBus:
         self.is_connected = False
         self.group_readers = {}
         self.group_writers = {}
+
+        self.fps = 100
+        self.thread = None
+        self.stop_event = None
+
+        self.motor_values = None
+
         self.logs = {}
 
     def connect(self):
@@ -892,6 +902,35 @@ class DynamixelMotorsBus:
         ts_utc_name = get_log_name("timestamp_utc", "write", data_name, motor_names)
         self.logs[ts_utc_name] = capture_timestamp_utc()
 
+    def read_loop(self, data_name, motor_names: str | list[str] | None = None):
+        while not self.stop_event.is_set():
+            try:
+                self.motor_values = self.read(data_name, motor_names)
+            except Exception as e:
+                print(f"Error reading in thread: {e}")
+
+    def async_read(self, data_name, motor_names: str | list[str] | None = None):
+        if not self.is_connected:
+            raise RobotDeviceNotConnectedError(
+                f"DynamixelMotorsBus({self.port}) is not connected. You need to run `motors_bus.connect()`."
+            )
+
+        if self.thread is None:
+            self.stop_event = threading.Event()
+            self.thread = Thread(target=self.read_loop, args=(data_name,motor_names,))
+            self.thread.daemon = True
+            self.thread.start()
+
+        num_tries = 0
+        while True:
+            if self.motor_values is not None:
+                return self.motor_values
+
+            time.sleep(1 / self.fps)
+            num_tries += 1
+            if num_tries > self.fps * 2:
+                raise TimeoutError("Timed out waiting for async_read() to start.")
+
     def disconnect(self):
         if not self.is_connected:
             raise RobotDeviceNotConnectedError(
@@ -905,6 +944,13 @@ class DynamixelMotorsBus:
         self.packet_handler = None
         self.group_readers = {}
         self.group_writers = {}
+
+        if self.thread is not None:
+            self.stop_event.set()
+            self.thread.join()  # wait for the thread to finish
+            self.thread = None
+            self.stop_event = None
+
         self.is_connected = False
 
     def __del__(self):

@@ -1,31 +1,81 @@
-# Adora-LeRobot
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="media/lerobot-logo-thumbnail.png">
+    <source media="(prefers-color-scheme: light)" srcset="media/lerobot-logo-thumbnail.png">
+    <img alt="LeRobot, Hugging Face Robotics Library" src="media/lerobot-logo-thumbnail.png" style="max-width: 100%;">
+  </picture>
+  <br/>
+  <br/>
+</p>
+
+<div align="center">
+
+[![Tests](https://github.com/huggingface/lerobot/actions/workflows/nightly-tests.yml/badge.svg?branch=main)](https://github.com/huggingface/lerobot/actions/workflows/nightly-tests.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/huggingface/lerobot/branch/main/graph/badge.svg?token=TODO)](https://codecov.io/gh/huggingface/lerobot)
+[![Python versions](https://img.shields.io/pypi/pyversions/lerobot)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/huggingface/lerobot/blob/main/LICENSE)
+[![Status](https://img.shields.io/pypi/status/lerobot)](https://pypi.org/project/lerobot/)
+[![Version](https://img.shields.io/pypi/v/lerobot)](https://pypi.org/project/lerobot/)
+[![Examples](https://img.shields.io/badge/Examples-green.svg)](https://github.com/huggingface/lerobot/tree/main/examples)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.1%20adopted-ff69b4.svg)](https://github.com/huggingface/lerobot/blob/main/CODE_OF_CONDUCT.md)
+[![Discord](https://dcbadge.vercel.app/api/server/C5P34WJ68S?style=flat)](https://discord.gg/s3KuuzsPFb)
+
+</div>
+
+<h2 align="center">
+    <p><a href="https://github.com/huggingface/lerobot/blob/main/examples/10_use_so100.md">
+        Build Your Own SO-100 Robot!</a></p>
+</h2>
+
+<div align="center">
+  <img src="media/so100/leader_follower.webp?raw=true" alt="SO-100 leader and follower arms" title="SO-100 leader and follower arms" width="50%">
+
+  <p><strong>Meet the SO-100 – Just $110 per arm!</strong></p>
+  <p>Train it in minutes with a few simple moves on your laptop.</p>
+  <p>Then sit back and watch your creation act autonomously! 🤯</p>
+
+  <p><a href="https://github.com/huggingface/lerobot/blob/main/examples/10_use_so100.md">
+      Get the full SO-100 tutorial here.</a></p>
+
+  <p>Want to take it to the next level? Make your SO-100 mobile by building LeKiwi!</p>
+  <p>Check out the <a href="https://github.com/huggingface/lerobot/blob/main/examples/11_use_lekiwi.md">LeKiwi tutorial</a> and bring your robot to life on wheels.</p>
+
+  <img src="media/lekiwi/kiwi.webp?raw=true" alt="LeKiwi mobile robot" title="LeKiwi mobile robot" width="50%">
+</div>
+
+<br/>
+
+<h3 align="center">
+    <p>LeRobot: State-of-the-art AI for real-world robotics</p>
+</h3>
+
+---
 
 
-## 简介
+🤗 LeRobot aims to provide models, datasets, and tools for real-world robotics in PyTorch. The goal is to lower the barrier to entry to robotics so that everyone can contribute and benefit from sharing datasets and pretrained models.
 
-🤗 本仓库为LeRobot的魔改版本。在LeRobot已支持的机器人型号基础上增加了对于Adora、Realman等多种机器人的支持。同时也改进了对于多线程高帧率的支持，优化了采集脚本。
+🤗 LeRobot contains state-of-the-art approaches that have been shown to transfer to the real-world with a focus on imitation learning and reinforcement learning.
 
-🤗 通过本仓库您可以快速简单地使用LeRobot复现具身智能经典模型（如ACT、DP、pi0等）在Adora等机器人或是您的机器人上。
+🤗 LeRobot already provides a set of pretrained models, datasets with human collected demonstrations, and simulation environments to get started without assembling a robot. In the coming weeks, the plan is to add more and more support for real-world robotics on the most affordable and capable robots out there.
 
+🤗 LeRobot hosts pretrained models and datasets on this Hugging Face community page: [huggingface.co/lerobot](https://huggingface.co/lerobot)
 
-#### 样例
+#### Examples of pretrained models on simulation environments
 
 <table>
   <tr>
-    <td><img src="media/adora/act_grasp_fruit.gif" width="95%" alt="ACT policy on ALOHA env"/></td>
+    <td><img src="media/gym/aloha_act.gif" width="100%" alt="ACT policy on ALOHA env"/></td>
+    <td><img src="media/gym/simxarm_tdmpc.gif" width="100%" alt="TDMPC policy on SimXArm env"/></td>
     <td><img src="media/gym/pusht_diffusion.gif" width="100%" alt="Diffusion policy on PushT env"/></td>
   </tr>
   <tr>
-    <td align="center">ACT policy on Adora robot</td>
+    <td align="center">ACT policy on ALOHA env</td>
+    <td align="center">TDMPC policy on SimXArm env</td>
     <td align="center">Diffusion policy on PushT env</td>
   </tr>
 </table>
 
-### 致谢
-
-- 感谢HuggingFace团队开源[LeRobot](https://github.com/huggingface/lerobot)。我是从此基础上适配并改进的。
-
-- 感谢dora-rs团队开源[dora](https://github.com/dora-rs/dora)，并提供了[Adora](https://github.com/Ryu-Yang/adora-robot)机器人。
+### Acknowledgment
 
 - Thanks to Tony Zhao, Zipeng Fu and colleagues for open sourcing ACT policy, ALOHA environments and datasets. Ours are adapted from [ALOHA](https://tonyzhaozh.github.io/aloha) and [Mobile ALOHA](https://mobile-aloha.github.io).
 - Thanks to Cheng Chi, Zhenjia Xu and colleagues for open sourcing Diffusion policy, Pusht environment and datasets, as well as UMI datasets. Ours are adapted from [Diffusion Policy](https://diffusion-policy.cs.columbia.edu) and [UMI Gripper](https://umi-gripper.github.io).
@@ -33,51 +83,22 @@
 - Thanks to Antonio Loquercio and Ashish Kumar for their early support.
 - Thanks to [Seungjae (Jay) Lee](https://sjlee.cc/), [Mahi Shafiullah](https://mahis.life/) and colleagues for open sourcing [VQ-BeT](https://sjlee.cc/vq-bet/) policy and helping us adapt the codebase to our repository. The policy is adapted from [VQ-BeT repo](https://github.com/jayLEE0301/vq_bet_official).
 
-## 硬件准备
 
-**机器人** 
+## Installation
 
-> 本项目支持多款机器人，选其一即可。请参考其操作手册进行操作
-
-- Adora - [操作手册](https://github.com/Ryu-Yang/adora-robot)
-
-- Realman - [操作手册]()
-
-**采集推理平台**
-
-> 根据情况，选其一即可。
-
-- 自带Nidia显卡的个人计算机（推荐20系往上、显存8GB往上）
-- Jetson Orin NX
-
-**训练平台**
-
-> 根据选其一即可。
-
-- 自带Nidia显卡的个人计算机（训练ACT、DP模型推荐使用16GB显存往上）
-- AutoDL（训练pi0时需要租用H800 80G/A800 80G等80G左右显存的卡来训练）
-
-**其他**
-
-- 一个背景光照变化不大且能容纳下机器人的场地。
-
-- 操作用的桌子和操作的道具
-
-## 安装
-
-下载源码:
+Download our source code:
 ```bash
-git clone https://github.com/Ryu-Yang/adora-lerobot.git
-cd adora-lerobot
+git clone https://github.com/huggingface/lerobot.git
+cd lerobot
 ```
 
 Create a virtual environment with Python 3.10 and activate it, e.g. with [`miniconda`](https://docs.anaconda.com/free/miniconda/index.html):
 ```bash
-conda create -y -n adora-lerobot python=3.10
-conda activate adora-lerobot
+conda create -y -n lerobot python=3.10
+conda activate lerobot
 ```
 
-Install 🤗 Adora-LeRobot:
+Install 🤗 LeRobot:
 ```bash
 pip install -e .
 ```
@@ -102,43 +123,6 @@ wandb login
 ```
 
 (note: you will also need to enable WandB in the configuration. See below.)
-
-## Datasets
-
-```
-task
-├── meta
-│   ├── episodes.jsonl
-│   ├── episodes_stats.jsonl
-│   ├── info.json
-│   └── tasks.jsonl
-├── data
-│   ├── chunk-000
-│   │   ├── episode_000000.parquet
-│   │   ├── episode_000001.parquet
-│   │   ├── episode_000002.parquet
-│   │   └── ...
-│   └── ...
-└── videos
-    ├── chunk-000
-    │   ├── observation.images.left_wrist
-    │   |   ├── episode_000000.mp4
-    │   |   ├── episode_000001.mp4
-    │   |   ├── episode_000002.mp4
-    │   |   └── ...
-    │   ├── observation.images.right_wrist
-    │   |   ├── episode_000000.mp4
-    │   |   ├── episode_000001.mp4
-    │   |   ├── episode_000002.mp4
-    │   |   └── ...
-    │   ├── observation.images.top
-    │   |   ├── episode_000000.mp4
-    │   |   ├── episode_000001.mp4
-    │   |   ├── episode_000002.mp4
-    │   |   └── ...
-    │   └── ...
-    └── ...
-```
 
 ## Walkthrough
 
