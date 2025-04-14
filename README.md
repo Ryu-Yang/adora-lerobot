@@ -103,6 +103,43 @@ wandb login
 
 (note: you will also need to enable WandB in the configuration. See below.)
 
+## Datasets
+
+```
+task
+├── meta
+│   ├── episodes.jsonl
+│   ├── episodes_stats.jsonl
+│   ├── info.json
+│   └── tasks.jsonl
+├── data
+│   ├── chunk-000
+│   │   ├── episode_000000.parquet
+│   │   ├── episode_000001.parquet
+│   │   ├── episode_000002.parquet
+│   │   └── ...
+│   └── ...
+└── videos
+    ├── chunk-000
+    │   ├── observation.images.left_wrist
+    │   |   ├── episode_000000.mp4
+    │   |   ├── episode_000001.mp4
+    │   |   ├── episode_000002.mp4
+    │   |   └── ...
+    │   ├── observation.images.right_wrist
+    │   |   ├── episode_000000.mp4
+    │   |   ├── episode_000001.mp4
+    │   |   ├── episode_000002.mp4
+    │   |   └── ...
+    │   ├── observation.images.top
+    │   |   ├── episode_000000.mp4
+    │   |   ├── episode_000001.mp4
+    │   |   ├── episode_000002.mp4
+    │   |   └── ...
+    │   └── ...
+    └── ...
+```
+
 ## Walkthrough
 
 ```
