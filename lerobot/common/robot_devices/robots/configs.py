@@ -678,6 +678,7 @@ class AdoraDualRobotConfig(RobotConfig):
     right_arm_config = {}
     right_arm_config['usb_port'] = "/dev/ttyUSB0"
     right_arm_config['ip'] = "192.168.1.19"
+    right_arm_config['fps'] = 30
     right_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_right"
     right_arm_config['start_pose'] = [90.0, 90.0, -90.0, -90.0, 0.0, 0.0, 0.0]
     right_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
@@ -699,6 +700,7 @@ class AdoraDualRobotConfig(RobotConfig):
     left_arm_config = {}
     left_arm_config['usb_port'] = "/dev/ttyUSB1"
     left_arm_config['ip'] = "192.168.1.20"
+    left_arm_config['fps'] = 30
     left_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_left"
     left_arm_config['start_pose'] = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
     left_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
@@ -727,6 +729,80 @@ class AdoraDualRobotConfig(RobotConfig):
             ),
             "left_wrist": OpenCVCameraConfig(
                 camera_index=6,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+            "right_wrist": OpenCVCameraConfig(
+                camera_index=22,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+        }
+    )
+
+    mock: bool = False
+
+
+@RobotConfig.register_subclass("realman")
+@dataclass
+class RealmanRobotConfig(RobotConfig):
+
+    right_arm_config = {}
+    # right_arm_config['usb_port'] = "/dev/ttyUSB0"
+    right_arm_config['ip'] = "169.254.128.19"
+    right_arm_config['fps'] = 30
+    # right_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_right"
+    # right_arm_config['start_pose'] = [90.0, 90.0, -90.0, -90.0, 0.0, 0.0, 0.0]
+    # right_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
+    # right_arm_config['joint_n_limit'] = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
+    # right_leader_arm = DynamixelMotorsBusConfig(
+    #     port=right_arm_config['usb_port'],
+    #     motors={
+    #         "joint_1": [1, "xl330-m288"],
+    #         "joint_2": [2, "xl330-m288"],
+    #         "joint_3": [3, "xl330-m288"],
+    #         "joint_4": [4, "xl330-m288"],
+    #         "joint_5": [5, "xl330-m288"],
+    #         "joint_6": [6, "xl330-m288"],
+    #         "joint_7": [7, "xl330-m288"],
+    #         "gripper": [8, "xl330-m288"],
+    #     },
+    # )
+
+    left_arm_config = {}
+    # left_arm_config['usb_port'] = "/dev/ttyUSB1"
+    left_arm_config['ip'] = "169.254.128.18"
+    left_arm_config['fps'] = 30
+    # left_arm_config['calibration_dir'] = ".cache/calibration/adora_dual_left"
+    # left_arm_config['start_pose'] = [-90.0, 90.0, 90.0, -90.0, 0.0, 0.0, 0.0]
+    # left_arm_config['joint_p_limit'] = [169.0, 102.0, 169.0, 52.0, 169.0, 117.0, 169.0]
+    # left_arm_config['joint_n_limit'] = [-169.0, -102.0, -169.0, -167.0, -169.0, -87.0, -169.0]
+    # left_leader_arm = DynamixelMotorsBusConfig(
+    #     port=left_arm_config['usb_port'],
+    #     motors={
+    #         "joint_1": [1, "xl330-m288"],
+    #         "joint_2": [2, "xl330-m288"],
+    #         "joint_3": [3, "xl330-m288"],
+    #         "joint_4": [4, "xl330-m288"],
+    #         "joint_5": [5, "xl330-m288"],
+    #         "joint_6": [6, "xl330-m288"],
+    #         "joint_7": [7, "xl330-m288"],
+    #         "gripper": [8, "xl330-m288"],
+    #     },
+    # )
+
+    cameras: dict[str, CameraConfig] = field(
+        default_factory=lambda: {
+            "top": OpenCVCameraConfig(
+                camera_index=20,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+            "left_wrist": OpenCVCameraConfig(
+                camera_index=4,
                 fps=30,
                 width=640,
                 height=480,
