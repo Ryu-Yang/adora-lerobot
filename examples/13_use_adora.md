@@ -40,7 +40,7 @@
 
 ## B. 安装 Adora LeRobot
 
-> [!注意]
+> [!TIP]
 > 我们会用到很多命令行操作 (cmd)。如果您不太擅长使用可以参考这里：[Command line crash course](https://developer.mozilla.org/en-US/docs/Learn_web_development/Getting_started/Environment_setup/Command_line)
 
 在您的计算机或Jetson上:
