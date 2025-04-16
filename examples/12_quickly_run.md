@@ -62,13 +62,13 @@ python lerobot/scripts/control_robot.py \
   --robot.type=adora_dual \
   --control.type=record \
   --control.fps=10 \
-  --control.single_task="Grasp fruit and put them in the bowl." \
-  --control.repo_id=Ryu-Yang/eval_act_adora_dual_grasp_best \
+  --control.single_task="Stacking cloth" \
+  --control.repo_id=Ryu-Yang/eval_pi0_adora_dual_stacking_cloth \
   --control.tags='["tutorial"]' \
   --control.warmup_time_s=240 \
   --control.episode_time_s=240 \
   --control.reset_time_s=240 \
   --control.num_episodes=3 \
-  --control.push_to_hub=true \
-  --control.policy.path=outputs/train/act_adora_dual_grasp_best/checkpoints/060000/pretrained_model
+  --control.push_to_hub=false \
+  --control.policy.path=outputs/train/pi0_adora_dual_stacking_cloth/checkpoints/150000/pretrained_model
 ```
