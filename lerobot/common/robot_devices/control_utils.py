@@ -38,6 +38,7 @@ from lerobot.common.robot_devices.utils import busy_wait
 from lerobot.common.utils.utils import get_safe_torch_device, has_method
 
 from threading import Thread
+import numpy as np
 import threading
 
 
@@ -112,11 +113,14 @@ def predict_action(observation, policy, device, use_amp):
     ):
         # Convert to pytorch format: channel first and float32 in [0,1] with batch dimension
         for name in observation:
-            if "image" in name:
-                observation[name] = observation[name].type(torch.float32) / 255
-                observation[name] = observation[name].permute(2, 0, 1).contiguous()
-            observation[name] = observation[name].unsqueeze(0)
-            observation[name] = observation[name].to(device)
+            if isinstance(observation[name], torch.Tensor):
+                if "image" in name:
+                    observation[name] = observation[name].type(torch.float32) / 255
+                    observation[name] = observation[name].permute(2, 0, 1).contiguous()
+                observation[name] = observation[name].unsqueeze(0)
+                observation[name] = observation[name].to(device)
+            else:
+                continue
 
         # Compute the next action with the policy
         # based on the current observation
@@ -304,7 +308,7 @@ def control_loop(
             # robot.teleop_step()
         else:
             observation = robot.capture_observation()
-            observation["task"] = single_task[:]
+            # observation["task"] = single_task
 
             if policy is not None:
                 pred_action = predict_action(
