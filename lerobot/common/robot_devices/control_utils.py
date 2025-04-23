@@ -308,7 +308,8 @@ def control_loop(
             # robot.teleop_step()
         else:
             observation = robot.capture_observation()
-            # observation["task"] = single_task
+            # observation["task"] = [single_task[:], single_task[:]]
+            observation.update({"task":[single_task]})
 
             if policy is not None:
                 pred_action = predict_action(

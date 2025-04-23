@@ -56,7 +56,34 @@ python lerobot/scripts/train.py \
   --wandb.enable=false
 ```
 
+```
+python lerobot/scripts/train.py \
+  --dataset.repo_id=Ryu-Yang/adora_dual_stacking_cloth \
+  --policy.type=pi0 \
+  --output_dir=outputs/train/pi0_test_adora_dual_stacking_cloth \
+  --job_name=pi0_test_adora_dual_stacking_cloth \
+  --policy.device=cuda \
+  --wandb.enable=false
+```
+
 # 推理
+
+```
+python lerobot/scripts/control_robot.py \
+  --robot.type=adora_dual \
+  --control.type=record \
+  --control.fps=10 \
+  --control.single_task="Grasp fruit and put them in the bowl." \
+  --control.repo_id=Ryu-Yang/eval_act_adora_dual_grasp_best \
+  --control.tags='["tutorial"]' \
+  --control.warmup_time_s=240 \
+  --control.episode_time_s=240 \
+  --control.reset_time_s=240 \
+  --control.num_episodes=3 \
+  --control.push_to_hub=false \
+  --control.policy.path=outputs/train/act_adora_dual_grasp_best/checkpoints/060000/pretrained_model
+```
+
 ```
 python lerobot/scripts/control_robot.py \
   --robot.type=adora_dual \
