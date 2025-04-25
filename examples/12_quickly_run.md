@@ -39,21 +39,23 @@ Checkpoints are done during recording, so if any issue occurs, you can resume re
 
 # 查看
 
+  --root /home/kemove/autodl-tmp/Ryu-Yang/adora_dual_stacking_cloth
 ```
 python lerobot/scripts/visualize_dataset_html.py \
-  --repo-id Ryu-Yang/adora_grasp
+  --repo-id Ryu-Yang/adora_dual_stacking_cloth
 ```
 
 # 训练
 
-```
+```\
+export HF_LEROBOT_HOME=~/autodl-tmp/
 python lerobot/scripts/train.py \
-  --dataset.repo_id=Ryu-Yang/adora_dual_grasp \
-  --policy.type=act \
-  --output_dir=outputs/train/act_adora_dual_grasp \
-  --job_name=act_adora_dual_grasp \
+  --dataset.repo_id=Ryu-Yang/adora_dual_stacking_cloth \
+  --policy.type=pi0 \
+  --output_dir=outputs/train/pi0_adora_dual_stacking_cloth \
+  --job_name=pi0_adora_dual_stacking_cloth \
   --policy.device=cuda \
-  --wandb.enable=false
+  --wandb.enable=true
 ```
 
 # 推理
