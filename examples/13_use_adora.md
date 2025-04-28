@@ -199,7 +199,6 @@ python lerobot/scripts/control_robot.py \
 ```bash
 python lerobot/scripts/visualize_dataset_html.py \
   --repo-id ${HF_USER}/adora_dual_test \
-  --local-files-only 1
 ```
 
 采集50条数据用于模型训练：
