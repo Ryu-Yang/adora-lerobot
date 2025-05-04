@@ -36,6 +36,9 @@ from torchvision.ops.misc import FrozenBatchNorm2d
 from lerobot.common.policies.act.configuration_act import ACTConfig
 from lerobot.common.policies.normalize import Normalize, Unnormalize
 from lerobot.common.policies.pretrained import PreTrainedPolicy
+import logging
+from termcolor import colored
+import time
 
 
 class ACTPolicy(PreTrainedPolicy):
@@ -134,6 +137,8 @@ class ACTPolicy(PreTrainedPolicy):
         # Action queue logic for n_action_steps > 1. When the action_queue is depleted, populate it by
         # querying the policy.
         if len(self._action_queue) == 0:
+            logging.info(colored("Evaluating ACT policy", "yellow"))
+            act_start_time = time.perf_counter()
             actions = self.model(batch)[0][:, : self.config.n_action_steps]
 
             # TODO(rcadene): make _forward return output dictionary?
@@ -142,6 +147,11 @@ class ACTPolicy(PreTrainedPolicy):
             # `self.model.forward` returns a (batch_size, n_action_steps, action_dim) tensor, but the queue
             # effectively has shape (n_action_steps, batch_size, *), hence the transpose.
             self._action_queue.extend(actions.transpose(0, 1))
+
+            act_eval_dt_s = time.perf_counter() - act_start_time
+            logging.info(colored("end evaluate ACT policy", "green"))
+            logging.info(colored(f"spend time: {act_eval_dt_s} s", "green"))
+
         return self._action_queue.popleft()
 
     def forward(self, batch: dict[str, Tensor]) -> tuple[Tensor, dict]:

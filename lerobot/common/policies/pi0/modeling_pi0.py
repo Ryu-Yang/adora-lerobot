@@ -66,6 +66,9 @@ from lerobot.common.policies.pi0.paligemma_with_expert import (
 )
 from lerobot.common.policies.pretrained import PreTrainedPolicy
 from lerobot.common.utils.utils import get_safe_dtype
+import logging
+from termcolor import colored
+import time
 
 
 def create_sinusoidal_pos_embedding(
@@ -278,14 +281,24 @@ class PI0Policy(PreTrainedPolicy):
         # Action queue logic for n_action_steps > 1. When the action_queue is depleted, populate it by
         # querying the policy.
         if len(self._action_queue) == 0:
+            logging.info(colored("Evaluating PI0 policy", "yellow"))
+            pi0_start_time = time.perf_counter()
+
+            ref_time = time.perf_counter()
             images, img_masks = self.prepare_images(batch)
             state = self.prepare_state(batch)
             lang_tokens, lang_masks = self.prepare_language(batch)
+            ref_time_dt_s = time.perf_counter() - ref_time
+            logging.info(colored(f"Prepare spend time: {ref_time_dt_s} s", "green"))
 
+            ref_time = time.perf_counter()
             actions = self.model.sample_actions(
                 images, img_masks, lang_tokens, lang_masks, state, noise=noise
             )
+            ref_time_dt_s = time.perf_counter() - ref_time
+            logging.info(colored(f"Sample actions spend time: {ref_time_dt_s} s", "green"))
 
+            ref_time = time.perf_counter()
             # Unpad actions
             original_action_dim = self.config.action_feature.shape[0]
             actions = actions[:, :, :original_action_dim]
@@ -298,6 +311,14 @@ class PI0Policy(PreTrainedPolicy):
             # `self.model.forward` returns a (batch_size, n_action_steps, action_dim) tensor, but the queue
             # effectively has shape (n_action_steps, batch_size, *), hence the transpose.
             self._action_queue.extend(actions.transpose(0, 1))
+
+            ref_time_dt_s = time.perf_counter() - ref_time
+            logging.info(colored(f"Unpad actions spend time: {ref_time_dt_s} s", "green"))
+
+            pi0_eval_dt_s = time.perf_counter() - pi0_start_time
+            logging.info(colored("end evaluate PI0 policy", "green"))
+            logging.info(colored(f"spend time: {pi0_eval_dt_s} s", "green"))
+
         return self._action_queue.popleft()
 
     def forward(self, batch: dict[str, Tensor], noise=None, time=None) -> tuple[Tensor, dict[str, Tensor]]:
@@ -654,16 +675,23 @@ class PI0FlowMatching(nn.Module):
         bsize = state.shape[0]
         device = state.device
 
+        ref_time = time.perf_counter()
         if noise is None:
             actions_shape = (bsize, self.config.n_action_steps, self.config.max_action_dim)
             noise = self.sample_noise(actions_shape, device)
+        ref_time_dt_s = time.perf_counter() - ref_time
+        logging.info(colored(f"sample_noise spend time: {ref_time_dt_s} s", "blue"))
 
+        ref_time = time.perf_counter()
         prefix_embs, prefix_pad_masks, prefix_att_masks = self.embed_prefix(
             images, img_masks, lang_tokens, lang_masks
         )
         prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
+        ref_time_dt_s = time.perf_counter() - ref_time
+        logging.info(colored(f"embed_prefix spend time: {ref_time_dt_s} s", "blue"))
 
+        ref_time = time.perf_counter()
         # Compute image and language key value cache
         _, past_key_values = self.paligemma_with_expert.forward(
             attention_mask=prefix_att_2d_masks,
@@ -673,14 +701,18 @@ class PI0FlowMatching(nn.Module):
             use_cache=self.config.use_cache,
             fill_kv_cache=True,
         )
+        ref_time_dt_s = time.perf_counter() - ref_time
+        logging.info(colored(f"key values forward spend time: {ref_time_dt_s} s", "blue"))
 
         dt = -1.0 / self.config.num_steps
         dt = torch.tensor(dt, dtype=torch.float32, device=device)
 
         x_t = noise
-        time = torch.tensor(1.0, dtype=torch.float32, device=device)
-        while time >= -dt / 2:
-            expanded_time = time.expand(bsize)
+        s_time = torch.tensor(1.0, dtype=torch.float32, device=device)
+
+        ref_time = time.perf_counter()
+        while s_time >= -dt / 2:
+            expanded_time = s_time.expand(bsize)
             v_t = self.denoise_step(
                 state,
                 prefix_pad_masks,
@@ -691,7 +723,10 @@ class PI0FlowMatching(nn.Module):
 
             # Euler step
             x_t += dt * v_t
-            time += dt
+            s_time += dt
+        
+        ref_time_dt_s = time.perf_counter() - ref_time
+        logging.info(colored(f"while spend time: {ref_time_dt_s} s", "blue"))
         return x_t
 
     def denoise_step(
