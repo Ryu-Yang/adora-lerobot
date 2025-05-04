@@ -491,10 +491,7 @@ class GEN72Arm:
             if num_tries > self.fps * 2:
                 raise TimeoutError("Timed out waiting for async_read() to start.")
 
-
 class AdoraDualManipulator:
-    # TODO(rcadene): Implement force feedback
-
     def __init__(self, config: AdoraDualRobotConfig):
         self.config = config
         self.robot_type = self.config.type
@@ -689,6 +686,7 @@ class AdoraDualManipulator:
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
                 # 直接使用内存视图操作
+
                 # self.follower_arms[name].joint_teleop_write[i] = filter_value
                 self.follower_arms[name].joint_teleop_write[i] = clamped_value
 
@@ -827,6 +825,7 @@ class AdoraDualManipulator:
             now = time.perf_counter()
             eight_byte_array = np.zeros(8, dtype=np.float32)
             joint_obs_read = self.follower_arms[name].async_read_joint_degree()
+
             #夹爪通信获取当前夹爪开合度
             # giper_read=ctypes.c_int()
             # self.pDll.Get_Read_Holding_Registers(self.nSocket,1,40000,1,ctypes.byref(giper_read))
