@@ -314,7 +314,7 @@ class LeRobotDatasetMetadata:
         obj.repo_id = repo_id
         obj.root = Path(root) if root is not None else HF_LEROBOT_HOME / repo_id
 
-        obj.root.mkdir(parents=True, exist_ok=False)
+        obj.root.mkdir(parents=True, exist_ok=True)
 
         if robot is not None:
             features = get_features_from_robot(robot, use_videos)

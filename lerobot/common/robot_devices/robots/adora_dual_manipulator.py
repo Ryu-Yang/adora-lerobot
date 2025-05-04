@@ -24,6 +24,11 @@ from lerobot.common.robot_devices.utils import RobotDeviceAlreadyConnectedError,
 from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 from lerobot.common.robot_devices.robots.configs import AdoraDualRobotConfig
+from functools import cache
+import traceback
+import logging
+from threading import Thread
+import threading
 
 
 URL_HORIZONTAL_POSITION = {
@@ -345,9 +350,9 @@ class MovingAverageFilter:
         return self.buffer[0]
 
 
-class Gen72Arm:
-    def __init__(self, ip, start_pose, joint_p_limit, joint_n_limit):
-        
+class GEN72Arm:
+    def __init__(self, ip, start_pose, joint_p_limit, joint_n_limit, fps):
+        self.ip = ip
         self.start_pose = start_pose
         self.joint_p_limit = joint_p_limit
         self.joint_n_limit = joint_n_limit
@@ -377,7 +382,16 @@ class Gen72Arm:
         #推理输出部分-接收模型推理的关节角度，写入gen72 API中
         self.joint_send=float_joint()
 
-        self.frame_counter = 0  # 帧计数器
+
+        self.joint_async_read = None
+
+        self.old_grasp = 100
+
+        self.clipped_gripper = 100
+        self.fps = fps
+        self.thread = None
+        self.stop_event = None
+        self.logs = {}
 
         self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
 
@@ -417,6 +431,67 @@ class Gen72Arm:
         self.pDll.Write_Single_Register(self.nSocket, 1, 40000, 100, 1, 1)
         #配置碰撞检测等级为无检测
         self.pDll.Set_Collision_Stage(self.nSocket, 0, 0)
+
+        self.is_connected = True
+    
+    def movej_cmd(self, joint):
+        clipped_joint = max(self.joint_n_limit[:7], min(self.joint_p_limit[:7], joint[:7]))
+        c_joint = (ctypes.c_float * 7)(*clipped_joint)
+        self.pDll.Movej_Cmd(self.nSocket, c_joint, 20, 1, 0)
+    
+    def movej_canfd(self, joint):
+        clipped_joint = max(self.joint_n_limit[:7], min(self.joint_p_limit[:7], joint[:7]))
+        c_joint = (ctypes.c_float * 7)(*clipped_joint)
+        self.pDll.Movej_CANFD(self.nSocket, c_joint, FLAG_FOLLOW, 0)
+
+    def write_single_register(self, gripper):
+        clipped_gripper = max(0, min(100, gripper))
+        c_gripper = ctypes.c_int(clipped_gripper)
+        self.pDll.Write_Single_Register(self.nSocket, 1, 40000, c_gripper, 1, 0)
+
+    def read_joint_degree(self):
+        self.pDll.Get_Joint_Degree(self.nSocket, self.joint_teleop_read)
+        return self.joint_teleop_read
+    
+    def disconnect(self):
+        self.pDll.Close_Modbus_Mode(self.nSocket, 1, 1)
+
+        if self.thread is not None:
+            self.stop_event.set()
+            self.thread.join()  # wait for the thread to finish
+            self.thread = None
+            self.stop_event = None
+
+        self.is_connected = False
+
+    def read_loop(self):
+        while not self.stop_event.is_set():
+            try:
+                self.joint_async_read = self.read_joint_degree()
+            except Exception as e:
+                print(f"Error reading in thread: {e}")
+
+    def async_read_joint_degree(self):
+        if not self.is_connected:
+            raise RobotDeviceNotConnectedError(
+                f"GEN72Arm({self.byteIP}) is not connected. Try running `GEN72Arm()` first."
+            )
+
+        if self.thread is None:
+            self.stop_event = threading.Event()
+            self.thread = Thread(target=self.read_loop, args=())
+            self.thread.daemon = True
+            self.thread.start()
+
+        num_tries = 0
+        while True:
+            if self.joint_async_read is not None:
+                return self.joint_async_read
+
+            time.sleep(1 / self.fps)
+            num_tries += 1
+            if num_tries > self.fps * 2:
+                raise TimeoutError("Timed out waiting for async_read() to start.")
 
 class AdoraDualManipulator:
     # TODO(rcadene): Implement force feedback
@@ -534,6 +609,23 @@ class AdoraDualManipulator:
         self.leader_arms['right'] = DynamixelMotorsBus(self.config.right_leader_arm)
         self.leader_arms['left'] = DynamixelMotorsBus(self.config.left_leader_arm)
         self.cameras = make_cameras_from_configs(self.config.cameras)
+
+        self.follower_arms = {}
+        self.follower_arms['right'] = GEN72Arm(
+            ip = self.config.right_arm_config['ip'],
+            start_pose = self.config.right_arm_config['start_pose'],
+            joint_p_limit = self.config.right_arm_config['joint_p_limit'],
+            joint_n_limit = self.config.right_arm_config['joint_n_limit'],
+            fps = self.config.right_arm_config['fps'],
+        )
+        self.follower_arms['left'] = GEN72Arm(
+            ip = self.config.left_arm_config['ip'],
+            start_pose = self.config.left_arm_config['start_pose'],
+            joint_p_limit = self.config.left_arm_config['joint_p_limit'],
+            joint_n_limit = self.config.left_arm_config['joint_n_limit'],
+            fps = self.config.left_arm_config['fps'],
+        )
+        
         self.is_connected = False
         self.logs = {}
         self.frame_counter = 0  # 帧计数器
@@ -677,8 +769,8 @@ class AdoraDualManipulator:
             #     continue
             # 读取领导臂电机数据
             read_start = time.perf_counter()
-            leader_pos = self.leader_arms[name].read("Present_Position")
-            self.leader_pos[name] = leader_pos
+            leader_pos = self.leader_arms[name].async_read("Present_Position")
+            # self.follower_arms[name].leader_pos = leader_pos
             self.logs[f"read_leader_{name}_pos_dt_s"] = time.perf_counter() - read_start
 
             # 电机数据到关节角度的转换，关节角度处理（向量化操作）
@@ -694,12 +786,14 @@ class AdoraDualManipulator:
                 clamped_value = max(self.follower_arms[name].joint_n_limit[i], min(self.follower_arms[name].joint_p_limit[i], value))
 
                 # 移动平均滤波
-                filter_value = self.filters[i].update(clamped_value)
+                # filter_value = self.follower_arms[name].filters[i].update(clamped_value)
 
                 # if abs(filter_value - self.filters[i].get_last()) / WINDOW_SIZE > 180 ##超180度/s位移限制，暂时不弄
 
                 # 直接使用内存视图操作
-                self.joint_teleop_write[i] = filter_value
+
+                # self.follower_arms[name].joint_teleop_write[i] = filter_value
+                self.follower_arms[name].joint_teleop_write[i] = clamped_value
 
             # 电机角度到夹爪开合度的换算
             giper_value = leader_pos[7] * GRIPPER_SCALE
@@ -723,9 +817,7 @@ class AdoraDualManipulator:
             eight_byte_array = np.zeros(8, dtype=np.float32)
             
             now = time.perf_counter()
-            self.pDll.Get_Joint_Degree(self.nSocket,self.joint_teleop_read)
-            # giper_read=ctypes.c_int()
-            # self.pDll.Get_Read_Holding_Registers(self.nSocket,1, 40000, 1, ctypes.byref(giper_read))
+            joint_teleop_read = self.follower_arms[name].async_read_joint_degree()
 
             
             eight_byte_array[:7] = joint_teleop_read[:]
@@ -759,7 +851,7 @@ class AdoraDualManipulator:
         images = {}
         for name in self.cameras:
             now = time.perf_counter()
-            images[name] = self.cameras[name].read()
+            images[name] = self.cameras[name].async_read()
             images[name] = torch.from_numpy(images[name])
             self.logs[f"read_camera_{name}_dt_s"] = self.cameras[name].logs["delta_timestamp_s"]
             self.logs[f"async_read_camera_{name}_dt_s"] = time.perf_counter() - now
@@ -836,7 +928,9 @@ class AdoraDualManipulator:
         follower_pos = {}
         for name in self.follower_arms:
             now = time.perf_counter()
-            self.pDll.Get_Joint_Degree(self.nSocket,self.joint_obs_read)  
+            eight_byte_array = np.zeros(8, dtype=np.float32)
+            joint_obs_read = self.follower_arms[name].async_read_joint_degree()
+
             #夹爪通信获取当前夹爪开合度
             # giper_read=ctypes.c_int()
             # self.pDll.Get_Read_Holding_Registers(self.nSocket,1,40000,1,ctypes.byref(giper_read))
