@@ -395,8 +395,6 @@ class GEN72Arm:
 
         self.filters = [MovingAverageFilter(WINDOW_SIZE) for _ in range(7)]
 
-        self.old_grasp = 100
-
         #gen72API
         self.pDll.Movej_Cmd.argtypes = (ctypes.c_int, ctypes.c_float * 7, ctypes.c_byte, ctypes.c_float, ctypes.c_bool)
         self.pDll.Movej_Cmd.restype = ctypes.c_int
